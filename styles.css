@@ -1,0 +1,23 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  background: #000;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  color: #fff;
+}
+
+canvas {
+  display: block;
+  background: #000;
+  border: 1px solid #1a1a1a;
+}
