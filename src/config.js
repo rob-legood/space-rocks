@@ -8,6 +8,21 @@ export const CANVAS = {
   lineWidth: 1.5,
 };
 
+export const WORMHOLE = {
+  radius:          30,   // collision and visual radius in px
+  enterDuration:   1.0,  // seconds for the entry animation
+  exitDuration:    0.7,  // seconds for the exit shrink animation
+  rotSpeed:        2.2,  // rad/s — ring rotation rate
+  safeDistance:    100,  // min px from ship when exit wormhole spawns
+  outerColor:      '#4af',
+  innerColor:      '#a4f',
+  particleRate:    10,   // particles spawned per second
+  particleMinSpeed: 25,  // px/s outward
+  particleMaxSpeed: 85,  // px/s outward
+  particleMinAge:   0.4, // seconds
+  particleMaxAge:   1.0, // seconds
+};
+
 export const WARP = {
   outDuration:    0.40,   // seconds for warp-out shrink
   inDuration:     0.35,   // seconds for warp-in expand

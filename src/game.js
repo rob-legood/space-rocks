@@ -1,7 +1,8 @@
-import { CANVAS, ASTEROID, INVULN, HUD, COIN, FRAGMENT, PARTICLE, WARP } from './config.js';
+import { CANVAS, ASTEROID, INVULN, HUD, COIN, FRAGMENT, PARTICLE, WARP, WORMHOLE } from './config.js';
 import { Ship } from './entities/ship.js';
 import { Bullet } from './entities/bullet.js';
 import { Asteroid } from './entities/asteroid.js';
+import { Wormhole } from './entities/wormhole.js';
 import { Starfield } from './entities/starfield.js';
 import { Input } from './input.js';
 import { circlesOverlap } from './utils/collision.js';
@@ -31,6 +32,11 @@ export class Game {
     this._invulnTimer = INVULN.invulnDuration;
     this._state     = 'splash';
     this._menuIndex = 0;
+    this._level         = 1;
+    this._enterTimer    = 0;
+    this._exitTimer     = 0;
+    this._entryWormhole = null;
+    this._exitWormhole  = null;
 
     this.lastTime = 0;
     this._loop = this._loop.bind(this);
@@ -56,7 +62,8 @@ export class Game {
 
   _selectMenuItem() {
     if (this._menuIndex === 0) {
-      this._state = 'playing';
+      this._resetGame();
+      this._startEntering();
     } else {
       window.location.href = 'https://roblegood.ca';
     }
@@ -160,9 +167,128 @@ export class Game {
     this._coinParticles = [];
     this._score        = 0;
     this._lives       = HUD.lives;
-    this._warpPhase   = 'none';
-    this._warpTimer   = 0;
-    this._invulnTimer = INVULN.invulnDuration;
+    this._warpPhase     = 'none';
+    this._warpTimer     = 0;
+    this._invulnTimer   = INVULN.invulnDuration;
+    this._level         = 1;
+    this._enterTimer    = 0;
+    this._exitTimer     = 0;
+    this._entryWormhole = null;
+    this._exitWormhole  = null;
+  }
+
+  _startEntering() {
+    this._enterTimer    = 0;
+    this._entryWormhole = new Wormhole(CANVAS.width / 2, CANVAS.height / 2);
+    this.ship.pos   = { x: CANVAS.width / 2, y: CANVAS.height / 2 };
+    this.ship.vel   = { x: 0, y: 0 };
+    this.ship.angle = -Math.PI / 2;
+    this.ship.dead  = false;
+    this._state     = 'entering';
+  }
+
+  _advanceLevel() {
+    // Future: transition to shop state here before next level.
+    this._level++;
+    this.bullets        = [];
+    this._coins         = [];
+    this._coinParticles = [];
+    this._fragments     = [];
+    this._particles     = [];
+    this._warpPhase     = 'none';
+    this._warpTimer     = 0;
+    this._exitWormhole  = null;
+    this.asteroids      = this._spawnInitialAsteroids();
+    this._startEntering();
+  }
+
+  _spawnExitWormhole() {
+    let x, y;
+    do {
+      x = Math.random() * CANVAS.width;
+      y = Math.random() * CANVAS.height;
+    } while (Math.hypot(x - this.ship.pos.x, y - this.ship.pos.y) < WORMHOLE.safeDistance);
+    return new Wormhole(x, y);
+  }
+
+  _updateEntering(dt) {
+    this.input.consumeFire(); // drain so Space pressed during animation doesn't queue a shot
+    this._enterTimer += dt;
+    this._entryWormhole.update(dt);
+    for (const a of this.asteroids) a.update(dt, this.bounds);
+    if (this._enterTimer >= WORMHOLE.enterDuration) {
+      this._entryWormhole = null;
+      this._invulnTimer   = INVULN.invulnDuration;
+      this._state         = 'playing';
+    }
+  }
+
+  _renderEntering(ctx) {
+    ctx.fillStyle = CANVAS.background;
+    ctx.fillRect(0, 0, CANVAS.width, CANVAS.height);
+    this.starfield.draw(ctx);
+
+    ctx.strokeStyle = CANVAS.stroke;
+    ctx.lineWidth   = CANVAS.lineWidth;
+    ctx.lineCap     = 'round';
+    ctx.lineJoin    = 'round';
+
+    for (const a of this.asteroids) a.draw(ctx, this.bounds);
+
+    const openFactor = Math.min(this._enterTimer / WORMHOLE.enterDuration, 1);
+
+    // Wormhole drawn first; ship emerges through it on top.
+    this._entryWormhole.draw(ctx, openFactor);
+
+    // Ship grows out of the wormhole in the second half of the animation.
+    const shipScale = Math.max(0, (openFactor - 0.4) / 0.6);
+    if (shipScale > 0.01) {
+      const { x, y } = this.ship.pos;
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.scale(shipScale, shipScale);
+      ctx.translate(-x, -y);
+      this.ship.draw(ctx);
+      ctx.restore();
+    }
+
+    this._renderHUD(ctx);
+  }
+
+  _updateExiting(dt) {
+    this._exitTimer += dt;
+    this._exitWormhole.update(dt);
+    if (this._exitTimer >= WORMHOLE.exitDuration) {
+      this._advanceLevel();
+    }
+  }
+
+  _renderExiting(ctx) {
+    ctx.fillStyle = CANVAS.background;
+    ctx.fillRect(0, 0, CANVAS.width, CANVAS.height);
+    this.starfield.draw(ctx);
+
+    ctx.strokeStyle = CANVAS.stroke;
+    ctx.lineWidth   = CANVAS.lineWidth;
+    ctx.lineCap     = 'round';
+    ctx.lineJoin    = 'round';
+
+    // Wormhole first so the ship renders on top and visibly shrinks into it.
+    this._exitWormhole.draw(ctx, 1);
+
+    const t = Math.min(this._exitTimer / WORMHOLE.exitDuration, 1);
+    const shipScale = 1 - t;
+    if (shipScale > 0.01) {
+      const { x, y } = this.ship.pos;
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.scale(shipScale, shipScale);
+      ctx.translate(-x, -y);
+      this.ship.draw(ctx);
+      ctx.restore();
+    }
+
+    this._renderHUD(ctx);
   }
 
   _updateGameOver(dt) {
@@ -333,8 +459,10 @@ export class Game {
   }
 
   update(dt) {
-    if (this._state === 'splash')   { this._updateSplash();   return; }
-    if (this._state === 'gameover') { this._updateGameOver(dt); return; }
+    if (this._state === 'splash')   { this._updateSplash();      return; }
+    if (this._state === 'gameover') { this._updateGameOver(dt);  return; }
+    if (this._state === 'entering') { this._updateEntering(dt);  return; }
+    if (this._state === 'exiting')  { this._updateExiting(dt);   return; }
 
     // Drain fire buffer every frame; only spawn bullet when alive.
     const fired = this.input.consumeFire();
@@ -432,6 +560,22 @@ export class Game {
         }
       }
     }
+
+    // Level complete: last asteroid just cleared during active play.
+    if (this._state === 'playing' && this.asteroids.length === 0) {
+      this._state = 'levelcomplete';
+      this._exitWormhole = this._spawnExitWormhole();
+    }
+
+    // Exit wormhole: player navigates to it to trigger the exit animation.
+    if (this._state === 'levelcomplete' && this._exitWormhole) {
+      this._exitWormhole.update(dt);
+      if (!this.ship.dead && circlesOverlap(this.ship, this._exitWormhole, this.bounds)) {
+        this.ship.vel = { x: 0, y: 0 };
+        this._exitTimer = 0;
+        this._state = 'exiting';
+      }
+    }
   }
 
   render() {
@@ -439,6 +583,8 @@ export class Game {
 
     if (this._state === 'splash')   { this._renderSplash(ctx);   return; }
     if (this._state === 'gameover') { this._renderGameOver(ctx); return; }
+    if (this._state === 'entering') { this._renderEntering(ctx); return; }
+    if (this._state === 'exiting')  { this._renderExiting(ctx);  return; }
 
     ctx.fillStyle = CANVAS.background;
     ctx.fillRect(0, 0, CANVAS.width, CANVAS.height);
@@ -521,6 +667,10 @@ export class Game {
       ctx.fill();
     }
     ctx.globalAlpha = 1;
+
+    if (this._state === 'levelcomplete' && this._exitWormhole) {
+      this._exitWormhole.draw(ctx, 1);
+    }
 
     this._renderHUD(ctx);
   }
