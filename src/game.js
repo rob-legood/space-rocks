@@ -63,7 +63,7 @@ export class Game {
   }
 
   _updateSplash() {
-    if (this.input.consumeLeft() || this.input.consumeRight()) {
+    if (this.input.consumeUp() || this.input.consumeDown()) {
       this._menuIndex = 1 - this._menuIndex;
     }
     if (this.input.consumeFire()) {
@@ -104,7 +104,7 @@ export class Game {
 
     ctx.font = '13px "Courier New", monospace';
     ctx.fillStyle = 'rgba(255,255,255,0.3)';
-    ctx.fillText('← →  NAVIGATE     SPACE  SELECT', cx, CANVAS.height - 30);
+    ctx.fillText('↑ ↓  NAVIGATE     SPACE  SELECT', cx, CANVAS.height - 30);
     ctx.restore();
   }
 
@@ -184,8 +184,8 @@ export class Game {
     }
     this._particles = this._particles.filter((p) => p.age < p.maxAge);
 
-    this.input.consumeLeft();
-    this.input.consumeRight();
+    this.input.consumeUp();
+    this.input.consumeDown();
     if (this.input.consumeFire()) {
       this._resetGame();
       this._state = 'splash';

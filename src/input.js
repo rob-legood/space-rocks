@@ -4,9 +4,9 @@ export class Input {
     this.right = false;
     this.thrust = false;
     this.fire = false;
-    this._firePressed = false;
-    this._leftPressed  = false;
-    this._rightPressed = false;
+    this._firePressed  = false;
+    this._upPressed    = false;
+    this._downPressed  = false;
 
     window.addEventListener('keydown', (e) => { if (!e.repeat) this.#set(e.code, true); });
     window.addEventListener('keyup', (e) => this.#set(e.code, false));
@@ -18,15 +18,15 @@ export class Input {
     return pressed;
   }
 
-  consumeLeft() {
-    const pressed = this._leftPressed;
-    this._leftPressed = false;
+  consumeUp() {
+    const pressed = this._upPressed;
+    this._upPressed = false;
     return pressed;
   }
 
-  consumeRight() {
-    const pressed = this._rightPressed;
-    this._rightPressed = false;
+  consumeDown() {
+    const pressed = this._downPressed;
+    this._downPressed = false;
     return pressed;
   }
 
@@ -45,6 +45,11 @@ export class Input {
       case 'ArrowUp':
       case 'KeyW':
         this.thrust = value;
+        if (value) this._upPressed = true;
+        break;
+      case 'ArrowDown':
+      case 'KeyS':
+        if (value) this._downPressed = true;
         break;
       case 'Space':
         this.fire = value;
