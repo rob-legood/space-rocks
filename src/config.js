@@ -35,10 +35,33 @@ export const PARTICLE = {
 };
 
 export const HUD = {
-  lives:       3,    // starting lives
-  iconScale:   0.7,  // ship icon size relative to SHIP.size
-  iconSpacing: 28,   // px between icon centres
-  iconPadding: 20,   // px from canvas right/top edges
+  lives:        3,    // starting lives
+  iconScale:    0.7,  // ship icon size relative to SHIP.size
+  iconSpacing:  28,   // px between icon centres
+  iconPadding:  20,   // px from canvas right/top edges
+  scorePadding: 16,   // px from canvas left/top edges
+  scoreSymbol:  '§',  // space bucks currency glyph
+};
+
+export const COIN = {
+  minCount:      1,
+  maxCount:      3,
+  radius:        6,     // px — also used as collision radius
+  minSpeed:      30,    // px/s
+  maxSpeed:      90,    // px/s
+  rotSpeed:      4.5,   // rad/s spin rate
+  maxAge:        15,    // seconds before disappearing
+  pulseStart:    10,    // seconds — slow pulse begins
+  pulseFast:     13,    // seconds — fast pulse begins
+  pulseSlowFreq: 10,    // rad/s oscillation rate (slow)
+  pulseFastFreq: 26,    // rad/s oscillation rate (fast)
+  sparkCount:    8,
+  sparkMinSpeed: 40,    // px/s
+  sparkMaxSpeed: 120,   // px/s
+  sparkMinAge:   0.25,  // seconds
+  sparkMaxAge:   0.55,  // seconds
+  color:         '#fbb500', // bright gold face
+  shine:         '#7a4d00', // darker inner circle
 };
 
 export const STARS = {

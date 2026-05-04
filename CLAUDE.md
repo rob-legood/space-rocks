@@ -7,9 +7,7 @@ npm run dev    # Vite dev server, usually http://localhost:5173
 npm run build  # production bundle to dist/
 ```
 
-## Current state (v0.3)
-
-Slices 1–5 are complete:
+## Current state (v0.4)
 
 - **Ship** — rotate, thrust with momentum, toroidal wrap, orange thrust-flame flicker
 - **Bullets** — fire on Space (edge-triggered, no key-repeat), fixed screen speed, expire by distance or age
@@ -21,8 +19,9 @@ Slices 1–5 are complete:
 - **Warp respawn** — on non-final death: ship contracts to a point (cyan rings), teleports to a random position, expands back in; full invuln on arrival
 - **Final death** — ship breaks into 4 flying line-segment fragments; red/orange/yellow particles burst outward and fade; asteroids keep drifting; GAME OVER floats above the live scene
 - **Game-over screen** — dim overlay + text over the live scene; Space returns to splash
+- **Score + coins** — destroying a small asteroid drops 1–3 spinning gold coins; ship collision collects them (+1 each); score displayed top-left as `§ N` in gold; coins live 15s, alpha-pulse slowly from 10s, rapidly from 13s, then vanish; bullets destroy coins and produce a small gold spark burst
 
-Not yet implemented: score, UFO, hyperspace, high scores, sound.
+Not yet implemented: UFO, hyperspace, high scores, sound.
 
 ## File map
 
@@ -69,6 +68,10 @@ src/
 
 **Particle system.** 55 particles spawned at the ship's centre on final death, each with a random direction, speed (60–260 px/s), lifespan (0.4–1.1s), radius (1–3px), and colour picked from a red→yellow palette. Alpha fades as `(1 - age/maxAge)^1.5` so particles stay bright longer and snap off at the end. Particles do not wrap — they're too short-lived to reach an edge.
 
+**Coin system.** Destroying a small asteroid spawns 1–3 coins at its position. Coins are plain objects (pos, vel, rotAngle, rotVel, age, radius) managed directly by `game.js` — not entity instances. They drift, wrap toroidally, and spin using `ctx.scale(Math.abs(Math.cos(rotAngle)), 1)` to simulate a 3D coin flip. Ship collision collects a coin (+1 score); bullet collision destroys it and calls `_spawnCoinParticles`. Coins live 15 seconds: alpha pulses slowly from 10s (`0.5 + 0.5 * sin(age * slowFreq)`) and rapidly from 13s, communicating urgency. `globalAlpha` is set inside `ctx.save()/ctx.restore()` so it doesn't leak. Coin spark particles use the same `(1 - t)^1.5` fade curve as ship particles. The bullet-coin collision pass runs before the bullet filter so a bullet already spent on an asteroid cannot also hit a coin in the same frame.
+
+**Score.** `_score` increments by 1 per coin collected. Displayed top-left as `§ N` (§ is the space-bucks symbol) in gold (`COIN.color`) using the same Courier New font as the rest of the HUD. All score/coin state is reset in `_resetGame`.
+
 **Game-over live scene.** When final death occurs, `_state` transitions to `'gameover'` immediately. `_updateGameOver` keeps asteroids drifting and particles/fragments animating. `_renderGameOver` draws the full live scene (bg → stars → asteroids → fragments → particles), then a `rgba(0,0,0,0.45)` overlay so the text reads cleanly on top. `_renderHUD` is not called from game-over (no point showing 0 lives).
 
 **Flame colour isolation.** `ship.draw` wraps the flame `drawPolygon` call in `ctx.save()` / `ctx.restore()` and sets `ctx.strokeStyle = SHIP.flameColor` inside. Without this, the coloured stroke would leak into the subsequent ship-body draw since `drawPolygon`'s internal save/restore only covers the transform, not the stroke style.
@@ -85,7 +88,7 @@ Each entity exposes:
 
 `Starfield` is draw-only (no `pos`, `radius`, or `update`) — it is not an entity in the physics sense.
 
-Fragments and particles are plain objects managed directly by `game.js`, not entity instances.
+Fragments, particles, coins, and coin particles are plain objects managed directly by `game.js`, not entity instances.
 
 ## drawPolygon convention
 

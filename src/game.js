@@ -1,4 +1,4 @@
-import { CANVAS, ASTEROID, INVULN, HUD, FRAGMENT, PARTICLE, WARP } from './config.js';
+import { CANVAS, ASTEROID, INVULN, HUD, COIN, FRAGMENT, PARTICLE, WARP } from './config.js';
 import { Ship } from './entities/ship.js';
 import { Bullet } from './entities/bullet.js';
 import { Asteroid } from './entities/asteroid.js';
@@ -22,6 +22,9 @@ export class Game {
     this.asteroids = this._spawnInitialAsteroids();
     this._fragments = [];
     this._particles = [];
+    this._coins        = [];
+    this._coinParticles = [];
+    this._score        = 0;
     this._lives       = HUD.lives;
     this._warpPhase   = 'none'; // 'none' | 'out' | 'in'
     this._warpTimer   = 0;
@@ -127,7 +130,9 @@ export class Game {
     if (this._lives <= 0) {
       this._fragments = Ship.explode(this.ship, FRAGMENT);
       this._particles = this._spawnParticles(this.ship);
-      this.bullets = [];
+      this.bullets        = [];
+      this._coins         = [];
+      this._coinParticles = [];
       this.ship.dead = true;
       this._state = 'gameover';
     } else {
@@ -151,6 +156,9 @@ export class Game {
     this.asteroids = this._spawnInitialAsteroids();
     this._fragments = [];
     this._particles = [];
+    this._coins        = [];
+    this._coinParticles = [];
+    this._score        = 0;
     this._lives       = HUD.lives;
     this._warpPhase   = 'none';
     this._warpTimer   = 0;
@@ -258,6 +266,13 @@ export class Game {
       const x = CANVAS.width - HUD.iconPadding - i * HUD.iconSpacing;
       Ship.drawIcon(ctx, x, HUD.iconPadding, HUD.iconScale);
     }
+
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    ctx.font = '20px "Courier New", monospace';
+    ctx.fillStyle = COIN.color;
+    ctx.fillText(`${HUD.scoreSymbol} ${this._score}`, HUD.scorePadding, HUD.scorePadding);
+
     ctx.restore();
   }
 
@@ -281,6 +296,39 @@ export class Game {
     if (next) {
       this.asteroids.push(new Asteroid(asteroid.pos.x, asteroid.pos.y, next));
       this.asteroids.push(new Asteroid(asteroid.pos.x, asteroid.pos.y, next));
+    } else {
+      this._spawnCoins(asteroid.pos);
+    }
+  }
+
+  _spawnCoins(pos) {
+    const count = COIN.minCount + Math.floor(Math.random() * (COIN.maxCount - COIN.minCount + 1));
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = COIN.minSpeed + Math.random() * (COIN.maxSpeed - COIN.minSpeed);
+      this._coins.push({
+        pos:      { x: pos.x, y: pos.y },
+        vel:      { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed },
+        rotAngle: Math.random() * Math.PI * 2,
+        rotVel:   COIN.rotSpeed * (Math.random() < 0.5 ? 1 : -1),
+        age:      0,
+        radius:   COIN.radius,
+      });
+    }
+  }
+
+  _spawnCoinParticles(pos) {
+    for (let i = 0; i < COIN.sparkCount; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = COIN.sparkMinSpeed + Math.random() * (COIN.sparkMaxSpeed - COIN.sparkMinSpeed);
+      this._coinParticles.push({
+        pos:    { x: pos.x, y: pos.y },
+        vel:    { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed },
+        age:    0,
+        maxAge: COIN.sparkMinAge + Math.random() * (COIN.sparkMaxAge - COIN.sparkMinAge),
+        radius: 1 + Math.random() * 1.5,
+        color:  COIN.color,
+      });
     }
   }
 
@@ -332,7 +380,48 @@ export class Game {
       }
     }
     for (const a of hitAsteroids) this.splitAsteroid(a);
+
+    // Coins: move, spin, wrap, age.
+    for (const c of this._coins) {
+      c.pos.x    += c.vel.x * dt;
+      c.pos.y    += c.vel.y * dt;
+      c.rotAngle += c.rotVel * dt;
+      c.age      += dt;
+      wrap(c.pos, this.bounds.width, this.bounds.height);
+    }
+
+    // Bullets vs coins (runs before bullet filter so dead bullets are skipped).
+    const deadCoins = new Set();
+    for (const b of this.bullets) {
+      if (b.dead) continue;
+      for (const c of this._coins) {
+        if (!deadCoins.has(c) && circlesOverlap(b, c, this.bounds)) {
+          b.dead = true;
+          deadCoins.add(c);
+          this._spawnCoinParticles(c.pos);
+          break;
+        }
+      }
+    }
     this.bullets = this.bullets.filter((b) => !b.dead);
+
+    // Expire, collect, and remove bullet-hit coins.
+    this._coins = this._coins.filter((c) => {
+      if (deadCoins.has(c) || c.age >= COIN.maxAge) return false;
+      if (!this.ship.dead && circlesOverlap(this.ship, c, this.bounds)) {
+        this._score += 1;
+        return false;
+      }
+      return true;
+    });
+
+    // Coin particles: move and expire.
+    for (const p of this._coinParticles) {
+      p.pos.x += p.vel.x * dt;
+      p.pos.y += p.vel.y * dt;
+      p.age   += dt;
+    }
+    this._coinParticles = this._coinParticles.filter((p) => p.age < p.maxAge);
 
     // Ship vs asteroids: skip while dead or invulnerable.
     if (!this.ship.dead && this._invulnTimer <= 0) {
@@ -401,6 +490,37 @@ export class Game {
 
     ctx.fillStyle = CANVAS.stroke;
     for (const b of this.bullets) b.draw(ctx);
+
+    for (const c of this._coins) {
+      let alpha = 1;
+      if (c.age >= COIN.pulseFast) {
+        alpha = 0.5 + 0.5 * Math.sin(c.age * COIN.pulseFastFreq);
+      } else if (c.age >= COIN.pulseStart) {
+        alpha = 0.5 + 0.5 * Math.sin(c.age * COIN.pulseSlowFreq);
+      }
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.translate(c.pos.x, c.pos.y);
+      ctx.scale(Math.abs(Math.cos(c.rotAngle)), 1);
+      ctx.fillStyle = COIN.color;
+      ctx.beginPath();
+      ctx.arc(0, 0, COIN.radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = COIN.shine;
+      ctx.beginPath();
+      ctx.arc(0, 0, COIN.radius * 0.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    for (const p of this._coinParticles) {
+      ctx.globalAlpha = (1 - p.age / p.maxAge) ** 1.5;
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.pos.x, p.pos.y, p.radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
 
     this._renderHUD(ctx);
   }
