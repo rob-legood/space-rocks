@@ -64,7 +64,10 @@ export class Ship {
 
     // Flame first so the ship outline draws on top
     if (this.thrusting && Math.random() > 0.3) {
+      ctx.save();
+      ctx.strokeStyle = SHIP.flameColor;
       drawPolygon(ctx, FLAME_SHAPE, transform);
+      ctx.restore();
     }
 
     drawPolygon(ctx, SHIP_SHAPE, transform);

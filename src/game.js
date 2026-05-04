@@ -2,6 +2,7 @@ import { CANVAS, ASTEROID, INVULN } from './config.js';
 import { Ship } from './entities/ship.js';
 import { Bullet } from './entities/bullet.js';
 import { Asteroid } from './entities/asteroid.js';
+import { Starfield } from './entities/starfield.js';
 import { Input } from './input.js';
 import { circlesOverlap } from './utils/collision.js';
 
@@ -13,12 +14,15 @@ export class Game {
     this.canvas.height = CANVAS.height;
 
     this.bounds = { width: CANVAS.width, height: CANVAS.height };
+    this.starfield = new Starfield();
     this.input = new Input();
     this.ship = new Ship(CANVAS.width / 2, CANVAS.height / 2);
     this.bullets = [];
     this.asteroids = this._spawnInitialAsteroids();
     this._respawnTimer = 0;
-    this._invulnTimer = 0;
+    this._invulnTimer = INVULN.invulnDuration;
+    this._state     = 'splash';
+    this._menuIndex = 0;
 
     this.lastTime = 0;
     this._loop = this._loop.bind(this);
@@ -40,6 +44,60 @@ export class Game {
     this.render();
 
     requestAnimationFrame(this._loop);
+  }
+
+  _selectMenuItem() {
+    if (this._menuIndex === 0) {
+      this._state = 'playing';
+    } else {
+      window.location.href = 'https://roblegood.ca';
+    }
+  }
+
+  _updateSplash() {
+    if (this.input.consumeLeft() || this.input.consumeRight()) {
+      this._menuIndex = 1 - this._menuIndex;
+    }
+    if (this.input.consumeFire()) {
+      this._selectMenuItem();
+    }
+  }
+
+  _renderSplash(ctx) {
+    ctx.save();
+    const cx = CANVAS.width / 2;
+    const cy = CANVAS.height / 2;
+
+    ctx.fillStyle = CANVAS.background;
+    ctx.fillRect(0, 0, CANVAS.width, CANVAS.height);
+
+    this.starfield.draw(ctx);
+
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    ctx.fillStyle = CANVAS.stroke;
+    ctx.font = 'bold 64px "Courier New", monospace';
+    ctx.fillText('SPACE ROCKS', cx, cy - 110);
+
+    const items = ['START', 'ABOUT THE AUTHOR'];
+    ctx.font = '26px "Courier New", monospace';
+
+    items.forEach((label, i) => {
+      const y = cy + 30 + i * 60;
+      const selected = i === this._menuIndex;
+      ctx.fillStyle = selected ? CANVAS.stroke : 'rgba(255,255,255,0.35)';
+      ctx.fillText(label, cx, y);
+      if (selected) {
+        const w = ctx.measureText(label).width;
+        ctx.fillText('>', cx - w / 2 - 20, y);
+      }
+    });
+
+    ctx.font = '13px "Courier New", monospace';
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.fillText('← →  NAVIGATE     SPACE  SELECT', cx, CANVAS.height - 30);
+    ctx.restore();
   }
 
   _spawnInitialAsteroids() {
@@ -74,6 +132,8 @@ export class Game {
   }
 
   update(dt) {
+    if (this._state === 'splash') { this._updateSplash(); return; }
+
     // Drain fire buffer every frame; only spawn bullet when alive.
     const fired = this.input.consumeFire();
     if (!this.ship.dead && fired) {
@@ -124,8 +184,12 @@ export class Game {
   render() {
     const { ctx } = this;
 
+    if (this._state === 'splash') { this._renderSplash(ctx); return; }
+
     ctx.fillStyle = CANVAS.background;
     ctx.fillRect(0, 0, CANVAS.width, CANVAS.height);
+
+    this.starfield.draw(ctx);
 
     ctx.strokeStyle = CANVAS.stroke;
     ctx.lineWidth = CANVAS.lineWidth;

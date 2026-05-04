@@ -8,6 +8,13 @@ export const CANVAS = {
   lineWidth: 1.5,
 };
 
+export const STARS = {
+  count:     80,
+  minRadius: 0.5,   // px — smallest pinprick
+  maxRadius: 1.5,   // px — largest star
+  alpha:     0.35,  // opacity (0–1)
+};
+
 export const INVULN = {
   respawnDelay:   1.5,  // seconds ship stays dead before reappearing
   invulnDuration: 2.0,  // seconds of invulnerability granted on respawn
@@ -42,4 +49,5 @@ export const SHIP = {
   thrustAccel: 220,        // pixels per second^2
   friction: 0.55,          // velocity multiplier per second (lower = more drag)
   maxSpeed: 420,           // pixels per second
+  flameColor: '#f60',      // thrust flame stroke colour
 };
