@@ -8,6 +8,39 @@ export const CANVAS = {
   lineWidth: 1.5,
 };
 
+export const WARP = {
+  outDuration:    0.40,   // seconds for warp-out shrink
+  inDuration:     0.35,   // seconds for warp-in expand
+  ringMaxRadius:  60,     // px — ring expands to this radius
+  color:          '#4cf', // bright cyan
+  inMargin:       100,    // min px from each canvas edge for random arrival
+};
+
+export const FRAGMENT = {
+  minSpeed: 60,   // px/s minimum fragment velocity
+  maxSpeed: 150,  // px/s maximum fragment velocity
+  rotSpeed: 3.5,  // max angular velocity rad/s
+  maxAge:   1.8,  // seconds before fragment disappears
+};
+
+export const PARTICLE = {
+  count:    55,
+  minSpeed: 60,
+  maxSpeed: 260,
+  minAge:   0.4,  // shortest a particle can live
+  maxAge:   1.1,  // longest a particle can live
+  minRadius: 1,
+  maxRadius: 3,
+  colors: ['#f22', '#f50', '#f80', '#fb0', '#ff0'],
+};
+
+export const HUD = {
+  lives:       3,    // starting lives
+  iconScale:   0.7,  // ship icon size relative to SHIP.size
+  iconSpacing: 28,   // px between icon centres
+  iconPadding: 20,   // px from canvas right/top edges
+};
+
 export const STARS = {
   count:     80,
   minRadius: 0.5,   // px — smallest pinprick

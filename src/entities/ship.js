@@ -59,6 +59,37 @@ export class Ship {
     wrap(this.pos, bounds.width, bounds.height);
   }
 
+  static explode(ship, config) {
+    const cos = Math.cos(ship.angle);
+    const sin = Math.sin(ship.angle);
+    const toWorld = ({ x, y }) => ({
+      x: ship.pos.x + cos * x - sin * y,
+      y: ship.pos.y + sin * x + cos * y,
+    });
+    return [[0,1],[1,2],[2,3],[3,0]].map(([i, j]) => {
+      const a = toWorld(SHIP_SHAPE[i]);
+      const b = toWorld(SHIP_SHAPE[j]);
+      const cx = (a.x + b.x) / 2;
+      const cy = (a.y + b.y) / 2;
+      const outDir = Math.atan2(cy - ship.pos.y, cx - ship.pos.x)
+                   + (Math.random() - 0.5);
+      const speed = config.minSpeed + Math.random() * (config.maxSpeed - config.minSpeed);
+      return {
+        points: [{ x: a.x - cx, y: a.y - cy }, { x: b.x - cx, y: b.y - cy }],
+        pos:    { x: cx, y: cy },
+        vel:    { x: ship.vel.x + Math.cos(outDir) * speed,
+                  y: ship.vel.y + Math.sin(outDir) * speed },
+        angle:  0,
+        rotVel: (Math.random() - 0.5) * 2 * config.rotSpeed,
+        age:    0,
+      };
+    });
+  }
+
+  static drawIcon(ctx, x, y, scale) {
+    drawPolygon(ctx, SHIP_SHAPE, { x, y, angle: -Math.PI / 2, scale });
+  }
+
   draw(ctx) {
     const transform = { x: this.pos.x, y: this.pos.y, angle: this.angle };
 

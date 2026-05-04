@@ -1,10 +1,11 @@
-import { CANVAS, ASTEROID, INVULN } from './config.js';
+import { CANVAS, ASTEROID, INVULN, HUD, FRAGMENT, PARTICLE, WARP } from './config.js';
 import { Ship } from './entities/ship.js';
 import { Bullet } from './entities/bullet.js';
 import { Asteroid } from './entities/asteroid.js';
 import { Starfield } from './entities/starfield.js';
 import { Input } from './input.js';
 import { circlesOverlap } from './utils/collision.js';
+import { drawAtWrappedPositions, wrap } from './utils/canvas.js';
 
 export class Game {
   constructor(canvas) {
@@ -19,7 +20,11 @@ export class Game {
     this.ship = new Ship(CANVAS.width / 2, CANVAS.height / 2);
     this.bullets = [];
     this.asteroids = this._spawnInitialAsteroids();
-    this._respawnTimer = 0;
+    this._fragments = [];
+    this._particles = [];
+    this._lives       = HUD.lives;
+    this._warpPhase   = 'none'; // 'none' | 'out' | 'in'
+    this._warpTimer   = 0;
     this._invulnTimer = INVULN.invulnDuration;
     this._state     = 'splash';
     this._menuIndex = 0;
@@ -100,6 +105,162 @@ export class Game {
     ctx.restore();
   }
 
+  _spawnParticles(ship) {
+    const { pos, vel } = ship;
+    return Array.from({ length: PARTICLE.count }, () => {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = PARTICLE.minSpeed + Math.random() * (PARTICLE.maxSpeed - PARTICLE.minSpeed);
+      const lifespan = PARTICLE.minAge + Math.random() * (PARTICLE.maxAge - PARTICLE.minAge);
+      return {
+        pos:     { x: pos.x, y: pos.y },
+        vel:     { x: vel.x + Math.cos(angle) * speed, y: vel.y + Math.sin(angle) * speed },
+        age:     0,
+        maxAge:  lifespan,
+        radius:  PARTICLE.minRadius + Math.random() * (PARTICLE.maxRadius - PARTICLE.minRadius),
+        color:   PARTICLE.colors[Math.floor(Math.random() * PARTICLE.colors.length)],
+      };
+    });
+  }
+
+  _killShip() {
+    this._lives -= 1;
+    if (this._lives <= 0) {
+      this._fragments = Ship.explode(this.ship, FRAGMENT);
+      this._particles = this._spawnParticles(this.ship);
+      this.bullets = [];
+      this.ship.dead = true;
+      this._state = 'gameover';
+    } else {
+      this.ship.dead = true;
+      this._warpPhase = 'out';
+      this._warpTimer = 0;
+    }
+  }
+
+  _randomRespawnPos() {
+    const m = WARP.inMargin;
+    return {
+      x: m + Math.random() * (CANVAS.width  - 2 * m),
+      y: m + Math.random() * (CANVAS.height - 2 * m),
+    };
+  }
+
+  _resetGame() {
+    this.ship = new Ship(CANVAS.width / 2, CANVAS.height / 2);
+    this.bullets = [];
+    this.asteroids = this._spawnInitialAsteroids();
+    this._fragments = [];
+    this._particles = [];
+    this._lives       = HUD.lives;
+    this._warpPhase   = 'none';
+    this._warpTimer   = 0;
+    this._invulnTimer = INVULN.invulnDuration;
+  }
+
+  _updateGameOver(dt) {
+    for (const a of this.asteroids) a.update(dt, this.bounds);
+
+    for (const f of this._fragments) {
+      f.pos.x += f.vel.x * dt;
+      f.pos.y += f.vel.y * dt;
+      f.angle += f.rotVel * dt;
+      f.age += dt;
+      wrap(f.pos, this.bounds.width, this.bounds.height);
+    }
+    // Fragments persist until the game-over screen is dismissed.
+
+    for (const p of this._particles) {
+      p.pos.x += p.vel.x * dt;
+      p.pos.y += p.vel.y * dt;
+      p.age += dt;
+    }
+    this._particles = this._particles.filter((p) => p.age < p.maxAge);
+
+    this.input.consumeLeft();
+    this.input.consumeRight();
+    if (this.input.consumeFire()) {
+      this._resetGame();
+      this._state = 'splash';
+    }
+  }
+
+  _renderGameOver(ctx) {
+    ctx.save();
+    const cx = CANVAS.width / 2;
+    const cy = CANVAS.height / 2;
+
+    // Live scene
+    ctx.fillStyle = CANVAS.background;
+    ctx.fillRect(0, 0, CANVAS.width, CANVAS.height);
+    this.starfield.draw(ctx);
+
+    ctx.strokeStyle = CANVAS.stroke;
+    ctx.lineWidth = CANVAS.lineWidth;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    for (const a of this.asteroids) a.draw(ctx, this.bounds);
+
+    for (const f of this._fragments) {
+      const cos = Math.cos(f.angle);
+      const sin = Math.sin(f.angle);
+      const toWorld = ({ x, y }) => ({
+        x: f.pos.x + cos * x - sin * y,
+        y: f.pos.y + sin * x + cos * y,
+      });
+      drawAtWrappedPositions(f.pos, 20, this.bounds, (wx, wy) => {
+        const dx = wx - f.pos.x;
+        const dy = wy - f.pos.y;
+        const a0 = toWorld(f.points[0]);
+        const a1 = toWorld(f.points[1]);
+        ctx.beginPath();
+        ctx.moveTo(a0.x + dx, a0.y + dy);
+        ctx.lineTo(a1.x + dx, a1.y + dy);
+        ctx.stroke();
+      });
+    }
+
+    for (const p of this._particles) {
+      ctx.globalAlpha = (1 - p.age / p.maxAge) ** 1.5;
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.pos.x, p.pos.y, p.radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    // Dim overlay so text reads clearly
+    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    ctx.fillRect(0, 0, CANVAS.width, CANVAS.height);
+
+    // Floating text
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = CANVAS.stroke;
+    ctx.font = 'bold 64px "Courier New", monospace';
+    ctx.fillText('GAME OVER', cx, cy - 40);
+
+    ctx.font = '20px "Courier New", monospace';
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.fillText('PRESS SPACE TO CONTINUE', cx, cy + 40);
+
+    ctx.restore();
+  }
+
+  _renderHUD(ctx) {
+    ctx.save();
+    ctx.strokeStyle = CANVAS.stroke;
+    ctx.lineWidth = CANVAS.lineWidth;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    const displayLives = this._lives + (this._warpPhase === 'out' ? 1 : 0);
+    for (let i = 0; i < displayLives; i++) {
+      const x = CANVAS.width - HUD.iconPadding - i * HUD.iconSpacing;
+      Ship.drawIcon(ctx, x, HUD.iconPadding, HUD.iconScale);
+    }
+    ctx.restore();
+  }
+
   _spawnInitialAsteroids() {
     const asteroids = [];
     const shipX = CANVAS.width / 2;
@@ -123,16 +284,9 @@ export class Game {
     }
   }
 
-  _respawn() {
-    this.ship.dead = false;
-    this.ship.pos = { x: CANVAS.width / 2, y: CANVAS.height / 2 };
-    this.ship.vel = { x: 0, y: 0 };
-    this.ship.angle = -Math.PI / 2;
-    this._invulnTimer = INVULN.invulnDuration;
-  }
-
   update(dt) {
-    if (this._state === 'splash') { this._updateSplash(); return; }
+    if (this._state === 'splash')   { this._updateSplash();   return; }
+    if (this._state === 'gameover') { this._updateGameOver(dt); return; }
 
     // Drain fire buffer every frame; only spawn bullet when alive.
     const fired = this.input.consumeFire();
@@ -141,8 +295,19 @@ export class Game {
     }
 
     if (this.ship.dead) {
-      this._respawnTimer -= dt;
-      if (this._respawnTimer <= 0) this._respawn();
+      this._warpTimer += dt;
+      if (this._warpPhase === 'out' && this._warpTimer >= WARP.outDuration) {
+        this._warpPhase = 'in';
+        this._warpTimer = 0;
+        this.ship.pos   = this._randomRespawnPos();
+        this.ship.vel   = { x: 0, y: 0 };
+        this.ship.angle = -Math.PI / 2;
+      } else if (this._warpPhase === 'in' && this._warpTimer >= WARP.inDuration) {
+        this._warpPhase   = 'none';
+        this._warpTimer   = 0;
+        this.ship.dead    = false;
+        this._invulnTimer = INVULN.invulnDuration;
+      }
     } else {
       this.ship.update(dt, this.input, this.bounds);
     }
@@ -173,8 +338,7 @@ export class Game {
     if (!this.ship.dead && this._invulnTimer <= 0) {
       for (const a of this.asteroids) {
         if (circlesOverlap(this.ship, a, this.bounds)) {
-          this.ship.dead = true;
-          this._respawnTimer = INVULN.respawnDelay;
+          this._killShip();
           break;
         }
       }
@@ -184,7 +348,8 @@ export class Game {
   render() {
     const { ctx } = this;
 
-    if (this._state === 'splash') { this._renderSplash(ctx); return; }
+    if (this._state === 'splash')   { this._renderSplash(ctx);   return; }
+    if (this._state === 'gameover') { this._renderGameOver(ctx); return; }
 
     ctx.fillStyle = CANVAS.background;
     ctx.fillRect(0, 0, CANVAS.width, CANVAS.height);
@@ -201,11 +366,42 @@ export class Game {
         this._invulnTimer > 0 &&
         Math.floor((INVULN.invulnDuration - this._invulnTimer) / INVULN.blinkInterval) % 2 !== 0;
       if (!hidden) this.ship.draw(ctx);
+    } else if (this._warpPhase !== 'none') {
+      const dur = this._warpPhase === 'out' ? WARP.outDuration : WARP.inDuration;
+      const t   = Math.min(this._warpTimer / dur, 1);
+      // Warp-out: ship shrinks (1→0); warp-in: ship grows (0→1).
+      const shipScale = this._warpPhase === 'out' ? 1 - t : t;
+
+      // Ship hull, scaled around its centre.
+      if (shipScale > 0.01) {
+        ctx.save();
+        ctx.translate(this.ship.pos.x, this.ship.pos.y);
+        ctx.scale(shipScale, shipScale);
+        ctx.translate(-this.ship.pos.x, -this.ship.pos.y);
+        this.ship.draw(ctx);
+        ctx.restore();
+      }
+
+      // Expanding cyan ring that fades out — same pattern for both phases.
+      ctx.save();
+      ctx.strokeStyle = WARP.color;
+      ctx.lineWidth   = 2;
+      ctx.globalAlpha = (1 - t) * 0.9;
+      ctx.beginPath();
+      ctx.arc(this.ship.pos.x, this.ship.pos.y, WARP.ringMaxRadius * t, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.globalAlpha = (1 - t) * 0.5;
+      ctx.beginPath();
+      ctx.arc(this.ship.pos.x, this.ship.pos.y, WARP.ringMaxRadius * 0.55 * t, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
     }
 
     for (const a of this.asteroids) a.draw(ctx, this.bounds);
 
     ctx.fillStyle = CANVAS.stroke;
     for (const b of this.bullets) b.draw(ctx);
+
+    this._renderHUD(ctx);
   }
 }
