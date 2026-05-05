@@ -7,6 +7,13 @@ import { Starfield } from './entities/starfield.js';
 import { Input } from './input.js';
 import { circlesOverlap } from './utils/collision.js';
 import { drawAtWrappedPositions, wrap } from './utils/canvas.js';
+import {
+  playFire, playBang, playExplosion,
+  playCoinCollect, playCoinDestroy,
+  playWarpOut, playWarpIn,
+  playMenuNav, playMenuSelect,
+  startThrust, stopThrust,
+} from './audio.js';
 
 export class Game {
   constructor(canvas) {
@@ -29,7 +36,8 @@ export class Game {
     this._lives       = HUD.lives;
     this._warpPhase   = 'none'; // 'none' | 'out' | 'in'
     this._warpTimer   = 0;
-    this._invulnTimer = INVULN.invulnDuration;
+    this._invulnTimer   = INVULN.invulnDuration;
+    this._wasThrusting  = false;
     this._state     = 'splash';
     this._menuIndex = 0;
     this._level         = 1;
@@ -70,10 +78,13 @@ export class Game {
   }
 
   _updateSplash() {
-    if (this.input.consumeUp() || this.input.consumeDown()) {
+    const nav = this.input.consumeUp() | this.input.consumeDown();
+    if (nav) {
       this._menuIndex = 1 - this._menuIndex;
+      playMenuNav();
     }
     if (this.input.consumeFire()) {
+      playMenuSelect();
       this._selectMenuItem();
     }
   }
@@ -133,8 +144,11 @@ export class Game {
   }
 
   _killShip() {
+    stopThrust();
+    this._wasThrusting = false;
     this._lives -= 1;
     if (this._lives <= 0) {
+      playExplosion();
       this._fragments = Ship.explode(this.ship, FRAGMENT);
       this._particles = this._spawnParticles(this.ship);
       this.bullets        = [];
@@ -143,6 +157,7 @@ export class Game {
       this.ship.dead = true;
       this._state = 'gameover';
     } else {
+      playWarpOut();
       this.ship.dead = true;
       this._warpPhase = 'out';
       this._warpTimer = 0;
@@ -158,6 +173,8 @@ export class Game {
   }
 
   _resetGame() {
+    stopThrust();
+    this._wasThrusting = false;
     this.ship = new Ship(CANVAS.width / 2, CANVAS.height / 2);
     this.bullets = [];
     this.asteroids = this._spawnInitialAsteroids();
@@ -178,8 +195,11 @@ export class Game {
   }
 
   _startEntering() {
-    this._enterTimer    = 0;
-    this._entryWormhole = new Wormhole(CANVAS.width / 2, CANVAS.height / 2);
+    stopThrust();
+    this._wasThrusting    = false;
+    this._enterTimer      = 0;
+    this._enterSoundFired = false;
+    this._entryWormhole   = new Wormhole(CANVAS.width / 2, CANVAS.height / 2);
     this.ship.pos   = { x: CANVAS.width / 2, y: CANVAS.height / 2 };
     this.ship.vel   = { x: 0, y: 0 };
     this.ship.angle = -Math.PI / 2;
@@ -214,6 +234,10 @@ export class Game {
   _updateEntering(dt) {
     this.input.consumeFire(); // drain so Space pressed during animation doesn't queue a shot
     this._enterTimer += dt;
+    if (!this._enterSoundFired && this._enterTimer >= WORMHOLE.enterDuration * 0.4) {
+      playWarpIn();
+      this._enterSoundFired = true;
+    }
     this._entryWormhole.update(dt);
     for (const a of this.asteroids) a.update(dt, this.bounds);
     if (this._enterTimer >= WORMHOLE.enterDuration) {
@@ -417,6 +441,7 @@ export class Game {
   }
 
   splitAsteroid(asteroid) {
+    playBang(asteroid.size);
     this.asteroids = this.asteroids.filter((a) => a !== asteroid);
     const next = { large: 'medium', medium: 'small' }[asteroid.size];
     if (next) {
@@ -468,6 +493,7 @@ export class Game {
     const fired = this.input.consumeFire();
     if (!this.ship.dead && fired) {
       this.bullets.push(new Bullet(this.ship));
+      playFire();
     }
 
     if (this.ship.dead) {
@@ -478,6 +504,7 @@ export class Game {
         this.ship.pos   = this._randomRespawnPos();
         this.ship.vel   = { x: 0, y: 0 };
         this.ship.angle = -Math.PI / 2;
+        playWarpIn();
       } else if (this._warpPhase === 'in' && this._warpTimer >= WARP.inDuration) {
         this._warpPhase   = 'none';
         this._warpTimer   = 0;
@@ -486,6 +513,10 @@ export class Game {
       }
     } else {
       this.ship.update(dt, this.input, this.bounds);
+      const nowThrusting = this.ship.thrusting;
+      if (nowThrusting && !this._wasThrusting) startThrust();
+      else if (!nowThrusting && this._wasThrusting) stopThrust();
+      this._wasThrusting = nowThrusting;
     }
 
     if (this._invulnTimer > 0) {
@@ -527,6 +558,7 @@ export class Game {
           b.dead = true;
           deadCoins.add(c);
           this._spawnCoinParticles(c.pos);
+          playCoinDestroy();
           break;
         }
       }
@@ -538,6 +570,7 @@ export class Game {
       if (deadCoins.has(c) || c.age >= COIN.maxAge) return false;
       if (!this.ship.dead && circlesOverlap(this.ship, c, this.bounds)) {
         this._score += 1;
+        playCoinCollect();
         return false;
       }
       return true;
@@ -574,6 +607,9 @@ export class Game {
         this.ship.vel = { x: 0, y: 0 };
         this._exitTimer = 0;
         this._state = 'exiting';
+        playWarpOut();
+        stopThrust();
+        this._wasThrusting = false;
       }
     }
   }
