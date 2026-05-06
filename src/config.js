@@ -122,3 +122,23 @@ export const SHIP = {
   maxSpeed: 420,           // pixels per second
   flameColor: '#f60',      // thrust flame stroke colour
 };
+
+export const STATION = {
+  pane:      { x: 16, y: 48, w: 240, h: 160 }, // canvas coords for the animation pane
+  stationX:  68,   // station hub center, pane-local
+  stationY:  80,
+  dockX:     130,  // ship center when docked, pane-local
+  dockY:     80,
+  entryX:    220,  // entry wormhole center, pane-local
+  entryY:    80,
+  exitX:     190,  // exit wormhole center, pane-local
+  exitY:     80,
+  hubRadius:    14,
+  panelLen:     34,  // solar panel arm length in px
+  panelW:       10,  // solar panel half-height
+  wormholeR:    16,  // radius of mini wormhole in pane
+  dockDuration:   2.0,  // seconds for docking animation
+  launchDuration: 1.6,  // seconds for launch animation
+  borderColor: '#4af',
+  menuItems:   ['UPGRADE', 'SELL', 'BUY', 'LAUNCH'],
+};

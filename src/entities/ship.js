@@ -90,6 +90,10 @@ export class Ship {
     drawPolygon(ctx, SHIP_SHAPE, { x, y, angle: -Math.PI / 2, scale });
   }
 
+  static drawAt(ctx, x, y, angle) {
+    drawPolygon(ctx, SHIP_SHAPE, { x, y, angle });
+  }
+
   draw(ctx) {
     const transform = { x: this.pos.x, y: this.pos.y, angle: this.angle };
 

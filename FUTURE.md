@@ -10,12 +10,9 @@ Not yet implemented:
 **high scores**
 - Keep track of high scores
 - Don't forget to display final score on the game over screen! 
-**sound effects**
-- It needs some
-**Warp in and out**
-- Wrap in to levels and out to the next one
 **Ship upgrades**
-- A store front between levels to purchase upgrades for the ship, more bullets, more damage, etc.
+- The Space Station screen exists between levels (MVP: UPGRADE/SELL/BUY are placeholder menu items)
+- Wire up actual upgrade purchasing with space bucks
 **Different targets**
 - Things other than asteroids to kill for money
 **Asteroids have health**

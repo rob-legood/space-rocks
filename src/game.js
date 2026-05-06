@@ -1,4 +1,4 @@
-import { CANVAS, ASTEROID, INVULN, HUD, COIN, FRAGMENT, PARTICLE, WARP, WORMHOLE } from './config.js';
+import { CANVAS, ASTEROID, INVULN, HUD, COIN, FRAGMENT, PARTICLE, WARP, WORMHOLE, STATION } from './config.js';
 import { Ship } from './entities/ship.js';
 import { Bullet } from './entities/bullet.js';
 import { Asteroid } from './entities/asteroid.js';
@@ -46,6 +46,12 @@ export class Game {
     this._entryWormhole = null;
     this._exitWormhole  = null;
 
+    this._stationPhase     = 'docking';
+    this._stationTimer     = 0;
+    this._stationMenuIndex = 3; // default to LAUNCH
+
+    this._devMode = false;
+
     this.lastTime = 0;
     this._loop = this._loop.bind(this);
   }
@@ -71,7 +77,7 @@ export class Game {
   _selectMenuItem() {
     if (this._menuIndex === 0) {
       this._resetGame();
-      this._startEntering();
+      this._startStation();
     } else {
       window.location.href = 'https://roblegood.ca';
     }
@@ -192,6 +198,20 @@ export class Game {
     this._exitTimer     = 0;
     this._entryWormhole = null;
     this._exitWormhole  = null;
+    this._stationPhase     = 'docking';
+    this._stationTimer     = 0;
+    this._stationMenuIndex = 3;
+  }
+
+  _startStation() {
+    stopThrust();
+    this._wasThrusting    = false;
+    this._stationPhase    = 'docking';
+    this._stationTimer    = 0;
+    this._stationMenuIndex = 3;
+    this.ship.vel  = { x: 0, y: 0 };
+    this.ship.dead = false;
+    this._state    = 'station';
   }
 
   _startEntering() {
@@ -208,7 +228,6 @@ export class Game {
   }
 
   _advanceLevel() {
-    // Future: transition to shop state here before next level.
     this._level++;
     this.bullets        = [];
     this._coins         = [];
@@ -219,7 +238,7 @@ export class Game {
     this._warpTimer     = 0;
     this._exitWormhole  = null;
     this.asteroids      = this._spawnInitialAsteroids();
-    this._startEntering();
+    this._startStation();
   }
 
   _spawnExitWormhole() {
@@ -423,6 +442,13 @@ export class Game {
     ctx.fillStyle = COIN.color;
     ctx.fillText(`${HUD.scoreSymbol} ${this._score}`, HUD.scorePadding, HUD.scorePadding);
 
+    if (this._devMode) {
+      ctx.textAlign = 'center';
+      ctx.font = '13px "Courier New", monospace';
+      ctx.fillStyle = '#0f0';
+      ctx.fillText('[DEV]', CANVAS.width / 2, HUD.scorePadding);
+    }
+
     ctx.restore();
   }
 
@@ -483,9 +509,310 @@ export class Game {
     }
   }
 
+  _updateStation(dt) {
+    if (this._stationPhase === 'docking') {
+      this.input.consumeFire();
+      this.input.consumeUp();
+      this.input.consumeDown();
+      this._stationTimer += dt;
+      if (this._stationTimer >= STATION.dockDuration) {
+        this._stationPhase = 'docked';
+        this._stationTimer = 0;
+      }
+      return;
+    }
+
+    if (this._stationPhase === 'docked') {
+      const items = STATION.menuItems;
+      if (this.input.consumeUp()) {
+        this._stationMenuIndex = (this._stationMenuIndex - 1 + items.length) % items.length;
+        playMenuNav();
+      }
+      if (this.input.consumeDown()) {
+        this._stationMenuIndex = (this._stationMenuIndex + 1) % items.length;
+        playMenuNav();
+      }
+      if (this.input.consumeFire()) {
+        if (items[this._stationMenuIndex] === 'LAUNCH') {
+          playMenuSelect();
+          this._stationPhase = 'launching';
+          this._stationTimer = 0;
+        }
+        // other items: placeholder — no action yet (no audio to avoid feeling broken)
+      }
+      return;
+    }
+
+    if (this._stationPhase === 'launching') {
+      this.input.consumeFire();
+      this.input.consumeUp();
+      this.input.consumeDown();
+      this._stationTimer += dt;
+      if (this._stationTimer >= STATION.launchDuration) {
+        this._startEntering();
+      }
+    }
+  }
+
+  // Returns ship state {x, y, angle, scale} in pane-local coordinates.
+  _getStationShipState() {
+    const { dockX, dockY, entryX, entryY, exitX, exitY, dockDuration } = STATION;
+    const t = this._stationTimer;
+
+    if (this._stationPhase === 'docking') {
+      const p    = Math.min(t / dockDuration, 1);
+      const ease = 1 - (1 - p) ** 2; // ease-out quad
+      return {
+        x: entryX + (dockX - entryX) * ease,
+        y: entryY + (dockY - entryY) * ease,
+        angle: Math.PI,
+        scale: 1,
+      };
+    }
+
+    if (this._stationPhase === 'docked') {
+      return { x: dockX, y: dockY, angle: Math.PI, scale: 1 };
+    }
+
+    if (this._stationPhase === 'launching') {
+      // Rotate nose from left (π) through up to right (2π≡0) over first 0.4s.
+      const angleT = Math.min(t / 0.4, 1);
+      const angle  = Math.PI + Math.PI * angleT;
+
+      // Move from dock to exit wormhole over [0.3, 1.1].
+      let x = dockX, y = dockY;
+      if (t > 0.3) {
+        const mt   = Math.min((t - 0.3) / 0.8, 1);
+        const ease = mt * mt; // ease-in
+        x = dockX + (exitX - dockX) * ease;
+        y = dockY + (exitY - dockY) * ease;
+      }
+
+      // Shrink into wormhole over [0.9, 1.5].
+      const scale = t > 0.9 ? Math.max(0, 1 - (t - 0.9) / 0.6) : 1;
+
+      return { x, y, angle, scale };
+    }
+
+    return { x: dockX, y: dockY, angle: Math.PI, scale: 0 };
+  }
+
+  _drawPaneWormhole(ctx, cx, cy, openFactor, age) {
+    if (openFactor <= 0) return;
+    const r   = STATION.wormholeR * openFactor;
+    const rot = age * WORMHOLE.rotSpeed;
+
+    ctx.save();
+    ctx.translate(cx, cy);
+
+    for (let i = 0; i < 3; i++) {
+      const a = rot + (i / 3) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, r, a, a + Math.PI * 0.55);
+      ctx.strokeStyle = WORMHOLE.outerColor;
+      ctx.lineWidth   = 1.5;
+      ctx.stroke();
+    }
+    for (let i = 0; i < 2; i++) {
+      const a = -rot * 1.4 + i * Math.PI;
+      ctx.beginPath();
+      ctx.arc(0, 0, r * 0.58, a, a + Math.PI * 0.7);
+      ctx.strokeStyle = WORMHOLE.innerColor;
+      ctx.lineWidth   = 1;
+      ctx.stroke();
+    }
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 0.38, 0, Math.PI * 2);
+    ctx.fillStyle = '#000014';
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  _renderStation(ctx) {
+    ctx.save();
+
+    ctx.fillStyle = CANVAS.background;
+    ctx.fillRect(0, 0, CANVAS.width, CANVAS.height);
+    this.starfield.draw(ctx);
+
+    const { x: px, y: py, w: pw, h: ph } = STATION.pane;
+
+    // Pane background + border (drawn outside clip so border isn't cropped).
+    ctx.fillStyle = 'rgba(0,8,18,0.92)';
+    ctx.fillRect(px, py, pw, ph);
+    ctx.strokeStyle = STATION.borderColor;
+    ctx.lineWidth   = 1.5;
+    ctx.strokeRect(px, py, pw, ph);
+
+    // --- Pane contents (clipped) ---
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(px, py, pw, ph);
+    ctx.clip();
+
+    ctx.strokeStyle = CANVAS.stroke;
+    ctx.lineWidth   = CANVAS.lineWidth;
+    ctx.lineCap     = 'round';
+    ctx.lineJoin    = 'round';
+
+    // Space station structure
+    const sx = px + STATION.stationX;
+    const sy = py + STATION.stationY;
+    const r  = STATION.hubRadius;
+
+    // Hub hexagon
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) {
+      const a  = (i / 6) * Math.PI * 2 - Math.PI / 6;
+      const vx = sx + r * Math.cos(a);
+      const vy = sy + r * Math.sin(a);
+      if (i === 0) ctx.moveTo(vx, vy); else ctx.lineTo(vx, vy);
+    }
+    ctx.closePath();
+    ctx.stroke();
+
+    // Left solar panel arm + panel
+    ctx.beginPath();
+    ctx.moveTo(sx - r, sy);
+    ctx.lineTo(sx - r - STATION.panelLen, sy);
+    ctx.stroke();
+    const lpx = sx - r - STATION.panelLen;
+    ctx.beginPath();
+    ctx.moveTo(lpx, sy - STATION.panelW);
+    ctx.lineTo(lpx, sy + STATION.panelW);
+    ctx.stroke();
+
+    // Right dock arm
+    const armTipX = px + STATION.dockX - 14;
+    ctx.beginPath();
+    ctx.moveTo(sx + r, sy);
+    ctx.lineTo(armTipX, sy);
+    ctx.stroke();
+
+    // Dock bracket (opens right, toward ship)
+    ctx.beginPath();
+    ctx.moveTo(armTipX, sy - 8);
+    ctx.lineTo(armTipX, sy + 8);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(armTipX, sy - 8);
+    ctx.lineTo(armTipX + 6, sy - 8);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(armTipX, sy + 8);
+    ctx.lineTo(armTipX + 6, sy + 8);
+    ctx.stroke();
+
+    // Wormholes
+    const t = this._stationTimer;
+    if (this._stationPhase === 'docking') {
+      this._drawPaneWormhole(ctx, px + STATION.entryX, py + STATION.entryY, Math.min(t / 0.3, 1), t);
+    } else if (this._stationPhase === 'launching') {
+      this._drawPaneWormhole(ctx, px + STATION.exitX, py + STATION.exitY, Math.min(t / 0.35, 1), t);
+    }
+
+    // Ship
+    const { x: shipPX, y: shipPY, angle: shipAngle, scale: shipScale } = this._getStationShipState();
+    if (shipScale > 0.01) {
+      const cx = px + shipPX;
+      const cy = py + shipPY;
+      ctx.save();
+      ctx.strokeStyle = CANVAS.stroke;
+      ctx.lineWidth   = CANVAS.lineWidth;
+      ctx.lineCap     = 'round';
+      ctx.lineJoin    = 'round';
+      ctx.translate(cx, cy);
+      ctx.scale(shipScale, shipScale);
+      ctx.translate(-cx, -cy);
+      Ship.drawAt(ctx, cx, cy, shipAngle);
+      ctx.restore();
+    }
+
+    ctx.restore(); // end pane clip
+
+    // Screen title + level indicator to the right of the pane
+    const titleX = (px + pw + CANVAS.width) / 2;
+    const titleY = py + ph / 2;
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font         = 'bold 26px "Courier New", monospace';
+    ctx.fillStyle    = STATION.borderColor;
+    ctx.fillText('SPACE STATION', titleX, titleY - 14);
+    ctx.font      = '16px "Courier New", monospace';
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.fillText(`LEVEL ${this._level}`, titleX, titleY + 20);
+
+    // Menu (only when docked — shown after docking animation completes)
+    if (this._stationPhase === 'docked') {
+      const menuX      = px + 24;
+      const menuStartY = py + ph + 30;
+      const items      = STATION.menuItems;
+
+      items.forEach((label, i) => {
+        const isLaunch = label === 'LAUNCH';
+        const extraGap = isLaunch ? 18 : 0;
+        const itemY    = menuStartY + i * 44 + extraGap;
+        const selected = i === this._stationMenuIndex;
+
+        ctx.textAlign    = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.font         = isLaunch
+          ? 'bold 24px "Courier New", monospace'
+          : '20px "Courier New", monospace';
+        ctx.fillStyle    = selected ? CANVAS.stroke : 'rgba(255,255,255,0.28)';
+
+        ctx.fillText(label, menuX, itemY);
+
+        if (selected) {
+          ctx.fillText('>', px + 8, itemY);
+        }
+      });
+
+      // Separator line before LAUNCH — positioned midway between BUY and LAUNCH
+      const sepY = menuStartY + 2 * 44 + 32;
+      ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+      ctx.lineWidth   = 1;
+      ctx.beginPath();
+      ctx.moveTo(px, sepY);
+      ctx.lineTo(px + pw, sepY);
+      ctx.stroke();
+
+      // Hint text
+      ctx.textAlign    = 'center';
+      ctx.textBaseline = 'bottom';
+      ctx.font         = '13px "Courier New", monospace';
+      ctx.fillStyle    = 'rgba(255,255,255,0.3)';
+      ctx.fillText('↑ ↓  NAVIGATE     SPACE  SELECT', CANVAS.width / 2, CANVAS.height - 12);
+    }
+
+    this._renderHUD(ctx);
+    ctx.restore();
+  }
+
+  _updateDevTools() {
+    if (this.input.consumeDevToggle()) this._devMode = !this._devMode;
+
+    const devW = this.input.consumeDevWormhole();
+    const devG = this.input.consumeDevCoin();
+
+    if (!this._devMode) return;
+
+    if (devG) this._score += 1;
+
+    if (devW && this._state === 'playing') {
+      this.asteroids    = [];
+      this._state       = 'levelcomplete';
+      this._exitWormhole = this._spawnExitWormhole();
+    }
+  }
+
   update(dt) {
+    this._updateDevTools();
+
     if (this._state === 'splash')   { this._updateSplash();      return; }
     if (this._state === 'gameover') { this._updateGameOver(dt);  return; }
+    if (this._state === 'station')  { this._updateStation(dt);   return; }
     if (this._state === 'entering') { this._updateEntering(dt);  return; }
     if (this._state === 'exiting')  { this._updateExiting(dt);   return; }
 
@@ -619,6 +946,7 @@ export class Game {
 
     if (this._state === 'splash')   { this._renderSplash(ctx);   return; }
     if (this._state === 'gameover') { this._renderGameOver(ctx); return; }
+    if (this._state === 'station')  { this._renderStation(ctx);  return; }
     if (this._state === 'entering') { this._renderEntering(ctx); return; }
     if (this._state === 'exiting')  { this._renderExiting(ctx);  return; }
 

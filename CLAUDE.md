@@ -7,7 +7,7 @@ npm run dev    # Vite dev server, usually http://localhost:5173
 npm run build  # production bundle to dist/
 ```
 
-## Current state (v0.4)
+## Current state (v0.5)
 
 - **Ship** — rotate, thrust with momentum, toroidal wrap, orange thrust-flame flicker
 - **Bullets** — fire on Space (edge-triggered, no key-repeat), fixed screen speed, expire by distance or age
@@ -20,8 +20,11 @@ npm run build  # production bundle to dist/
 - **Final death** — ship breaks into 4 flying line-segment fragments; red/orange/yellow particles burst outward and fade; asteroids keep drifting; GAME OVER floats above the live scene
 - **Game-over screen** — dim overlay + text over the live scene; Space returns to splash
 - **Score + coins** — destroying a small asteroid drops 1–3 spinning gold coins; ship collision collects them (+1 each); score displayed top-left as `§ N` in gold; coins live 15s, alpha-pulse slowly from 10s, rapidly from 13s, then vanish; bullets destroy coins and produce a small gold spark burst
+- **Space Station** — shown on game start and between every level; upper-left pane animates ship docking (wormhole + glide); menu shows UPGRADE / SELL / BUY (placeholders) and LAUNCH; LAUNCH plays undock + wormhole animation then enters the next level; HUD visible throughout; all station tunables in `STATION` config
 
-Not yet implemented: UFO, hyperspace, high scores, sound.
+## FUTURE.md
+
+The file FUTURE.MD contains future ideas for the game.  As features are implemented, remove it from that file
 
 ## File map
 
@@ -32,7 +35,7 @@ src/
   input.js              keyboard state; consumeFire/Left/Right() for edge-triggered input
   config.js             all tunables — adjust feel here, not in entity files
   entities/
-    ship.js             rotate/thrust/friction; Ship.explode() builds fragment objects; Ship.drawIcon() for HUD
+    ship.js             rotate/thrust/friction; Ship.explode() builds fragment objects; Ship.drawIcon() for HUD; Ship.drawAt() for station pane
     asteroid.js         buildShape() called once at construction (no shimmer)
     bullet.js           fixed screen-speed velocity, radius for collision
     starfield.js        static background stars, draw() only (no update)
@@ -93,3 +96,7 @@ Fragments, particles, coins, and coin particles are plain objects managed direct
 ## drawPolygon convention
 
 Shapes are defined in local space with the "front" at +x. `drawPolygon(ctx, points, {x, y, angle})` translates → rotates → strokes. The ship nose is at `{x: SHIP.size, y: 0}`; bullets spawn at `ship.pos + fromAngle(ship.angle) * SHIP.size`.
+
+## DEVTOOLS.md
+
+This file contains cheat codes that are available to be used once dev-tool mode is activated.
