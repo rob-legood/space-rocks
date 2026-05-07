@@ -20,7 +20,8 @@ npm run build  # production bundle to dist/
 - **Final death** — ship breaks into 4 flying line-segment fragments; red/orange/yellow particles burst outward and fade; asteroids keep drifting; GAME OVER floats above the live scene
 - **Game-over screen** — dim overlay + text over the live scene; Space returns to splash
 - **Score + coins** — destroying a small asteroid drops 1–3 spinning gold coins; ship collision collects them (+1 each); score displayed top-left as `§ N` in gold; coins live 15s, alpha-pulse slowly from 10s, rapidly from 13s, then vanish; bullets destroy coins and produce a small gold spark burst
-- **Space Station** — shown on game start and between every level; upper-left pane animates ship docking (wormhole + glide); menu shows UPGRADE / SELL / BUY (placeholders) and LAUNCH; LAUNCH plays undock + wormhole animation then enters the next level; HUD visible throughout; all station tunables in `STATION` config
+- **Space Station** — shown on game start and between every level; upper-left pane animates ship docking (wormhole + glide); menu shows UPGRADE / SELL / BUY and LAUNCH; UPGRADE opens the upgrade sub-screen; SELL / BUY are placeholders; LAUNCH plays undock + wormhole animation then enters the next level; HUD visible throughout; all station tunables in `STATION` config
+- **Upgrade system** — UPGRADE sub-screen lets players spend space bucks on persistent ship improvements; definitions live in `src/upgrades.json` (id, name, unit, tier values, tier costs); see `UPGRADE.md` for full documentation
 
 ## FUTURE.md
 
@@ -34,6 +35,7 @@ src/
   game.js               game loop, state machine, collision passes, respawn/warp logic
   input.js              keyboard state; consumeFire/Left/Right() for edge-triggered input
   config.js             all tunables — adjust feel here, not in entity files
+  upgrades.json         upgrade definitions (id, name, unit, levels[], costs[])
   entities/
     ship.js             rotate/thrust/friction; Ship.explode() builds fragment objects; Ship.drawIcon() for HUD; Ship.drawAt() for station pane
     asteroid.js         buildShape() called once at construction (no shimmer)
@@ -96,6 +98,12 @@ Fragments, particles, coins, and coin particles are plain objects managed direct
 ## drawPolygon convention
 
 Shapes are defined in local space with the "front" at +x. `drawPolygon(ctx, points, {x, y, angle})` translates → rotates → strokes. The ship nose is at `{x: SHIP.size, y: 0}`; bullets spawn at `ship.pos + fromAngle(ship.angle) * SHIP.size`.
+
+**Upgrade system.** Upgrade definitions live in `src/upgrades.json` — add an entry there and call `this._getUpgradeValue(id)` in `game.js` wherever the stat applies. Each entry has `id`, `name`, optional `unit` (appended to values in the UI, e.g. `"s"`), `levels[]` (value at each tier; index 0 is the free default), and `costs[]` (space bucks to reach each tier; costs[0] is always 0). Upgrade state (`_upgradeState`: id → tier index) persists across levels and resets only in `_resetGame`. The fire-rate cooldown (`_fireTimer`) is advanced every frame in `update` and reset to 0 on each shot; it starts at 999 so the player can fire immediately. New upgrades that affect gameplay need their own timer or check wired into the relevant update path.
+
+## UPGRADE.md
+
+The file UPGRADE.md documents the upgrade system design and all current upgrades. As new upgrades are added, document them there.
 
 ## DEVTOOLS.md
 

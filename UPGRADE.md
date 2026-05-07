@@ -10,6 +10,7 @@ All upgrades are defined in `src/upgrades.json`. Each entry has:
 |----------|------------|----------------------------------------------------------|
 | `id`     | string     | Internal key used by game logic                          |
 | `name`   | string     | Display name shown in the upgrade screen                 |
+| `unit`   | string     | Optional suffix appended to values in the UI (e.g. `s`) |
 | `levels` | number[]   | Value at each tier; `levels[0]` is the default (free)   |
 | `costs`  | number[]   | Space bucks to reach each tier; `costs[0]` is always 0  |
 
@@ -17,16 +18,19 @@ To add a new upgrade, add an entry to `upgrades.json` and apply its value in `ga
 
 ## Current upgrades
 
-### MULTI-SHOT (`maxBullets`)
+### RECHARGE SPEED (`rechargeCooldown`)
 
-Controls how many bullets can exist on screen simultaneously. Once the cap is reached, firing does nothing until a bullet expires.
+Minimum time in seconds between shots. Firing before the cooldown expires does nothing; the input is still consumed so it doesn't queue.
 
 | Tier | Value | Cost |
 |------|-------|------|
-| 0    | 1     | free |
-| 1    | 2     | §15  |
-| 2    | 3     | §30  |
-| 3    | 5     | §60  |
+| 0    | 2.0s  | free |
+| 1    | 1.6s  | §8   |
+| 2    | 1.2s  | §18  |
+| 3    | 1.0s  | §30  |
+| 4    | 0.8s  | §45  |
+| 5    | 0.6s  | §65  |
+| 6    | 0.5s  | §90  |
 
 ## UI flow
 

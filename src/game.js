@@ -1,4 +1,4 @@
-import { CANVAS, ASTEROID, INVULN, HUD, COIN, FRAGMENT, PARTICLE, WARP, WORMHOLE, STATION } from './config.js';
+import { CANVAS, ASTEROID, INVULN, HUD, COIN, FRAGMENT, PARTICLE, WARP, WORMHOLE, STATION, SHIP } from './config.js';
 import UPGRADES from './upgrades.json';
 import { Ship } from './entities/ship.js';
 import { Bullet } from './entities/bullet.js';
@@ -53,6 +53,7 @@ export class Game {
     this._stationScreen    = 'menu'; // 'menu' | 'upgrade'
     this._upgradeMenuIndex = 0;
     this._upgradeState     = {}; // upgrade id → current tier index
+    this._fireTimer        = 999; // time since last shot; 999 allows immediate first shot
 
     this._devMode = false;
 
@@ -208,6 +209,7 @@ export class Game {
     this._stationScreen    = 'menu';
     this._upgradeMenuIndex = 0;
     this._upgradeState     = {};
+    this._fireTimer        = 999;
   }
 
   _startStation() {
@@ -291,16 +293,17 @@ export class Game {
       const maxTier = item.levels.length - 1;
       const maxed   = tier >= maxTier;
       const curVal  = item.levels[tier];
+      const u       = item.unit ?? '';
 
       let label;
       let canAfford = false;
       if (maxed) {
-        label = `${item.name}  ${curVal}  [MAX]`;
+        label = `${item.name}  ${curVal}${u}  [MAX]`;
       } else {
         const nextVal = item.levels[tier + 1];
         const cost    = item.costs[tier + 1];
         canAfford     = this._score >= cost;
-        label = `${item.name}  ${curVal} -> ${nextVal}  (${HUD.scoreSymbol}${cost})`;
+        label = `${item.name}  ${curVal}${u} -> ${nextVal}${u}  (${HUD.scoreSymbol}${cost})`;
       }
 
       ctx.font = '20px "Courier New", monospace';
@@ -937,11 +940,14 @@ export class Game {
     if (this._state === 'entering') { this._updateEntering(dt);  return; }
     if (this._state === 'exiting')  { this._updateExiting(dt);   return; }
 
-    // Drain fire buffer every frame; only spawn bullet when alive and under cap.
-    const fired = this.input.consumeFire();
-    if (!this.ship.dead && fired && this.bullets.length < this._getUpgradeValue('maxBullets')) {
+    // Drain fire buffer every frame; only spawn bullet when alive and recharged.
+    this._fireTimer += dt;
+    const fired    = this.input.consumeFire();
+    const cooldown = this._getUpgradeValue('rechargeCooldown');
+    if (!this.ship.dead && fired && this._fireTimer >= cooldown) {
       this.bullets.push(new Bullet(this.ship));
       playFire();
+      this._fireTimer = 0;
     }
 
     if (this.ship.dead) {
@@ -1085,7 +1091,26 @@ export class Game {
       const hidden =
         this._invulnTimer > 0 &&
         Math.floor((INVULN.invulnDuration - this._invulnTimer) / INVULN.blinkInterval) % 2 !== 0;
-      if (!hidden) this.ship.draw(ctx);
+      if (!hidden) {
+        this.ship.draw(ctx);
+        const cooldown = this._getUpgradeValue('rechargeCooldown');
+        const progress = Math.min(this._fireTimer / cooldown, 1);
+        if (progress < 1) {
+          ctx.save();
+          ctx.strokeStyle = WARP.color;
+          ctx.lineWidth   = 1.5;
+          ctx.globalAlpha = 0.6;
+          ctx.beginPath();
+          ctx.arc(
+            this.ship.pos.x, this.ship.pos.y,
+            SHIP.size + 8,
+            -Math.PI / 2,
+            -Math.PI / 2 + progress * Math.PI * 2
+          );
+          ctx.stroke();
+          ctx.restore();
+        }
+      }
     } else if (this._warpPhase !== 'none') {
       const dur = this._warpPhase === 'out' ? WARP.outDuration : WARP.inDuration;
       const t   = Math.min(this._warpTimer / dur, 1);

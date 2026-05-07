@@ -1,10 +1,11 @@
 {
   "upgrades": [
     {
-      "id": "maxBullets",
-      "name": "MULTI-SHOT",
-      "levels": [1, 2, 3, 5],
-      "costs": [0, 15, 30, 60]
+      "id": "rechargeCooldown",
+      "name": "RECHARGE SPEED",
+      "unit": "s",
+      "levels": [2.0, 1.6, 1.2, 1.0, 0.8, 0.6, 0.5],
+      "costs": [0, 8, 18, 30, 45, 65, 90]
     }
   ]
 }
