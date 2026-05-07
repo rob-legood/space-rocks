@@ -32,6 +32,19 @@ Minimum time in seconds between shots. Firing before the cooldown expires does n
 | 5    | 0.6s  | §65  |
 | 6    | 0.5s  | §90  |
 
+### THRUST POWER (`thrustAccel`)
+
+Acceleration applied each frame when thrusting, in px/s². Higher values let the ship reach top speed faster and feel more responsive.
+
+| Tier | Value | Cost |
+|------|-------|------|
+| 0    | 110   | free |
+| 1    | 180   | §10  |
+| 2    | 260   | §24  |
+| 3    | 350   | §42  |
+| 4    | 430   | §64  |
+| 5    | 500   | §90  |
+
 ## UI flow
 
 1. At the Space Station, select **UPGRADE** from the main menu.

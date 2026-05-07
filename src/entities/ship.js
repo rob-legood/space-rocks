@@ -27,7 +27,7 @@ export class Ship {
     this.radius = SHIP.size * 0.7;
   }
 
-  update(dt, input, bounds) {
+  update(dt, input, bounds, thrustAccel = SHIP.thrustAccel) {
     // Rotation
     if (input.left) this.angle -= SHIP.rotationSpeed * dt;
     if (input.right) this.angle += SHIP.rotationSpeed * dt;
@@ -35,7 +35,7 @@ export class Ship {
     // Thrust
     this.thrusting = input.thrust;
     if (this.thrusting) {
-      const accel = scale(fromAngle(this.angle), SHIP.thrustAccel * dt);
+      const accel = scale(fromAngle(this.angle), thrustAccel * dt);
       this.vel = add(this.vel, accel);
     }
 

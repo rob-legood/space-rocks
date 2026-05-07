@@ -10,6 +10,7 @@ export class Input {
     this._devTogglePressed   = false;
     this._devWormholePressed = false;
     this._devCoinPressed     = false;
+    this._devBucksPressed    = false;
     this.shift               = false;
 
     window.addEventListener('keydown', (e) => { if (!e.repeat) this.#set(e.code, true); });
@@ -52,6 +53,12 @@ export class Input {
     return pressed;
   }
 
+  consumeDevBucks() {
+    const pressed = this._devBucksPressed;
+    this._devBucksPressed = false;
+    return pressed;
+  }
+
   #set(code, value) {
     switch (code) {
       case 'ArrowLeft':
@@ -83,6 +90,9 @@ export class Input {
         break;
       case 'KeyG':
         if (value && this.shift) this._devCoinPressed = true;
+        break;
+      case 'KeyT':
+        if (value && this.shift) this._devBucksPressed = true;
         break;
       case 'ShiftLeft':
       case 'ShiftRight':

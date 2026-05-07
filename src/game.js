@@ -919,10 +919,12 @@ export class Game {
 
     const devW = this.input.consumeDevWormhole();
     const devG = this.input.consumeDevCoin();
+    const devT = this.input.consumeDevBucks();
 
     if (!this._devMode) return;
 
     if (devG) this._score += 1;
+    if (devT) this._score += 1000;
 
     if (devW && this._state === 'playing') {
       this.asteroids    = [];
@@ -966,7 +968,7 @@ export class Game {
         this._invulnTimer = INVULN.invulnDuration;
       }
     } else {
-      this.ship.update(dt, this.input, this.bounds);
+      this.ship.update(dt, this.input, this.bounds, this._getUpgradeValue('thrustAccel'));
       const nowThrusting = this.ship.thrusting;
       if (nowThrusting && !this._wasThrusting) startThrust();
       else if (!nowThrusting && this._wasThrusting) stopThrust();

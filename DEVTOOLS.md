@@ -4,3 +4,4 @@ Once Dev-Tools mode is activated by pressing F2, the following commands will be 
 
 W - immediately spawn the wormhole to the next level
 G - Add one spacebuck to the player total
+T - Add 1000 spacebucks to the player total
