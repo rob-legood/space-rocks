@@ -1,4 +1,5 @@
 import { CANVAS, ASTEROID, INVULN, HUD, COIN, FRAGMENT, PARTICLE, WARP, WORMHOLE, STATION } from './config.js';
+import UPGRADES from './upgrades.json';
 import { Ship } from './entities/ship.js';
 import { Bullet } from './entities/bullet.js';
 import { Asteroid } from './entities/asteroid.js';
@@ -49,6 +50,9 @@ export class Game {
     this._stationPhase     = 'docking';
     this._stationTimer     = 0;
     this._stationMenuIndex = 3; // default to LAUNCH
+    this._stationScreen    = 'menu'; // 'menu' | 'upgrade'
+    this._upgradeMenuIndex = 0;
+    this._upgradeState     = {}; // upgrade id → current tier index
 
     this._devMode = false;
 
@@ -201,6 +205,9 @@ export class Game {
     this._stationPhase     = 'docking';
     this._stationTimer     = 0;
     this._stationMenuIndex = 3;
+    this._stationScreen    = 'menu';
+    this._upgradeMenuIndex = 0;
+    this._upgradeState     = {};
   }
 
   _startStation() {
@@ -209,9 +216,110 @@ export class Game {
     this._stationPhase    = 'docking';
     this._stationTimer    = 0;
     this._stationMenuIndex = 3;
+    this._stationScreen   = 'menu';
+    this._upgradeMenuIndex = 0;
     this.ship.vel  = { x: 0, y: 0 };
     this.ship.dead = false;
     this._state    = 'station';
+  }
+
+  _getUpgradeValue(id) {
+    const def  = UPGRADES.upgrades.find(u => u.id === id);
+    const tier = this._upgradeState[id] ?? 0;
+    return def.levels[tier];
+  }
+
+  _updateUpgradeScreen() {
+    const items = [...UPGRADES.upgrades, { id: '_back', name: 'BACK' }];
+    if (this.input.consumeUp()) {
+      this._upgradeMenuIndex = (this._upgradeMenuIndex - 1 + items.length) % items.length;
+      playMenuNav();
+    }
+    if (this.input.consumeDown()) {
+      this._upgradeMenuIndex = (this._upgradeMenuIndex + 1) % items.length;
+      playMenuNav();
+    }
+    if (this.input.consumeFire()) {
+      const item = items[this._upgradeMenuIndex];
+      if (item.id === '_back') {
+        playMenuSelect();
+        this._stationScreen    = 'menu';
+        this._stationMenuIndex = 0; // land on UPGRADE
+      } else {
+        const tier     = this._upgradeState[item.id] ?? 0;
+        const nextTier = tier + 1;
+        if (nextTier < item.levels.length) {
+          const cost = item.costs[nextTier];
+          if (this._score >= cost) {
+            this._score -= cost;
+            this._upgradeState[item.id] = nextTier;
+            playMenuSelect();
+          }
+        }
+      }
+    }
+  }
+
+  _renderUpgradeScreen(ctx) {
+    const { x: px, y: py, w: pw, h: ph } = STATION.pane;
+    const menuX      = px + 24;
+    const menuStartY = py + ph + 14;
+    const items      = [...UPGRADES.upgrades, { id: '_back', name: 'BACK' }];
+
+    ctx.textAlign    = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.font         = 'bold 18px "Courier New", monospace';
+    ctx.fillStyle    = STATION.borderColor;
+    ctx.fillText('UPGRADES', menuX, menuStartY);
+
+    items.forEach((item, i) => {
+      const itemY    = menuStartY + 36 + i * 46;
+      const selected = i === this._upgradeMenuIndex;
+
+      ctx.textAlign    = 'left';
+      ctx.textBaseline = 'middle';
+
+      if (item.id === '_back') {
+        ctx.font      = '20px "Courier New", monospace';
+        ctx.fillStyle = selected ? CANVAS.stroke : 'rgba(255,255,255,0.28)';
+        ctx.fillText('BACK', menuX, itemY);
+        if (selected) ctx.fillText('>', px + 8, itemY);
+        return;
+      }
+
+      const tier    = this._upgradeState[item.id] ?? 0;
+      const maxTier = item.levels.length - 1;
+      const maxed   = tier >= maxTier;
+      const curVal  = item.levels[tier];
+
+      let label;
+      let canAfford = false;
+      if (maxed) {
+        label = `${item.name}  ${curVal}  [MAX]`;
+      } else {
+        const nextVal = item.levels[tier + 1];
+        const cost    = item.costs[tier + 1];
+        canAfford     = this._score >= cost;
+        label = `${item.name}  ${curVal} -> ${nextVal}  (${HUD.scoreSymbol}${cost})`;
+      }
+
+      ctx.font = '20px "Courier New", monospace';
+      if (maxed) {
+        ctx.fillStyle = selected ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.2)';
+      } else if (!canAfford) {
+        ctx.fillStyle = selected ? 'rgba(255,180,0,0.45)' : 'rgba(255,180,0,0.2)';
+      } else {
+        ctx.fillStyle = selected ? CANVAS.stroke : 'rgba(255,255,255,0.28)';
+      }
+      ctx.fillText(label, menuX, itemY);
+      if (selected) ctx.fillText('>', px + 8, itemY);
+    });
+
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.font         = '13px "Courier New", monospace';
+    ctx.fillStyle    = 'rgba(255,255,255,0.3)';
+    ctx.fillText('↑ ↓  NAVIGATE     SPACE  SELECT', CANVAS.width / 2, CANVAS.height - 12);
   }
 
   _startEntering() {
@@ -523,6 +631,11 @@ export class Game {
     }
 
     if (this._stationPhase === 'docked') {
+      if (this._stationScreen === 'upgrade') {
+        this._updateUpgradeScreen();
+        return;
+      }
+
       const items = STATION.menuItems;
       if (this.input.consumeUp()) {
         this._stationMenuIndex = (this._stationMenuIndex - 1 + items.length) % items.length;
@@ -537,8 +650,12 @@ export class Game {
           playMenuSelect();
           this._stationPhase = 'launching';
           this._stationTimer = 0;
+        } else if (items[this._stationMenuIndex] === 'UPGRADE') {
+          playMenuSelect();
+          this._stationScreen    = 'upgrade';
+          this._upgradeMenuIndex = 0;
         }
-        // other items: placeholder — no action yet (no audio to avoid feeling broken)
+        // SELL / BUY: placeholder — no action yet
       }
       return;
     }
@@ -745,45 +862,49 @@ export class Game {
 
     // Menu (only when docked — shown after docking animation completes)
     if (this._stationPhase === 'docked') {
-      const menuX      = px + 24;
-      const menuStartY = py + ph + 30;
-      const items      = STATION.menuItems;
+      if (this._stationScreen === 'upgrade') {
+        this._renderUpgradeScreen(ctx);
+      } else {
+        const menuX      = px + 24;
+        const menuStartY = py + ph + 30;
+        const items      = STATION.menuItems;
 
-      items.forEach((label, i) => {
-        const isLaunch = label === 'LAUNCH';
-        const extraGap = isLaunch ? 18 : 0;
-        const itemY    = menuStartY + i * 44 + extraGap;
-        const selected = i === this._stationMenuIndex;
+        items.forEach((label, i) => {
+          const isLaunch = label === 'LAUNCH';
+          const extraGap = isLaunch ? 18 : 0;
+          const itemY    = menuStartY + i * 44 + extraGap;
+          const selected = i === this._stationMenuIndex;
 
-        ctx.textAlign    = 'left';
-        ctx.textBaseline = 'middle';
-        ctx.font         = isLaunch
-          ? 'bold 24px "Courier New", monospace'
-          : '20px "Courier New", monospace';
-        ctx.fillStyle    = selected ? CANVAS.stroke : 'rgba(255,255,255,0.28)';
+          ctx.textAlign    = 'left';
+          ctx.textBaseline = 'middle';
+          ctx.font         = isLaunch
+            ? 'bold 24px "Courier New", monospace'
+            : '20px "Courier New", monospace';
+          ctx.fillStyle    = selected ? CANVAS.stroke : 'rgba(255,255,255,0.28)';
 
-        ctx.fillText(label, menuX, itemY);
+          ctx.fillText(label, menuX, itemY);
 
-        if (selected) {
-          ctx.fillText('>', px + 8, itemY);
-        }
-      });
+          if (selected) {
+            ctx.fillText('>', px + 8, itemY);
+          }
+        });
 
-      // Separator line before LAUNCH — positioned midway between BUY and LAUNCH
-      const sepY = menuStartY + 2 * 44 + 32;
-      ctx.strokeStyle = 'rgba(255,255,255,0.15)';
-      ctx.lineWidth   = 1;
-      ctx.beginPath();
-      ctx.moveTo(px, sepY);
-      ctx.lineTo(px + pw, sepY);
-      ctx.stroke();
+        // Separator line before LAUNCH — positioned midway between BUY and LAUNCH
+        const sepY = menuStartY + 2 * 44 + 32;
+        ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+        ctx.lineWidth   = 1;
+        ctx.beginPath();
+        ctx.moveTo(px, sepY);
+        ctx.lineTo(px + pw, sepY);
+        ctx.stroke();
 
-      // Hint text
-      ctx.textAlign    = 'center';
-      ctx.textBaseline = 'bottom';
-      ctx.font         = '13px "Courier New", monospace';
-      ctx.fillStyle    = 'rgba(255,255,255,0.3)';
-      ctx.fillText('↑ ↓  NAVIGATE     SPACE  SELECT', CANVAS.width / 2, CANVAS.height - 12);
+        // Hint text
+        ctx.textAlign    = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.font         = '13px "Courier New", monospace';
+        ctx.fillStyle    = 'rgba(255,255,255,0.3)';
+        ctx.fillText('↑ ↓  NAVIGATE     SPACE  SELECT', CANVAS.width / 2, CANVAS.height - 12);
+      }
     }
 
     this._renderHUD(ctx);
@@ -816,9 +937,9 @@ export class Game {
     if (this._state === 'entering') { this._updateEntering(dt);  return; }
     if (this._state === 'exiting')  { this._updateExiting(dt);   return; }
 
-    // Drain fire buffer every frame; only spawn bullet when alive.
+    // Drain fire buffer every frame; only spawn bullet when alive and under cap.
     const fired = this.input.consumeFire();
-    if (!this.ship.dead && fired) {
+    if (!this.ship.dead && fired && this.bullets.length < this._getUpgradeValue('maxBullets')) {
       this.bullets.push(new Bullet(this.ship));
       playFire();
     }

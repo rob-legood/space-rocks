@@ -1,0 +1,10 @@
+{
+  "upgrades": [
+    {
+      "id": "maxBullets",
+      "name": "MULTI-SHOT",
+      "levels": [1, 2, 3, 5],
+      "costs": [0, 15, 30, 60]
+    }
+  ]
+}

@@ -10,9 +10,6 @@ Not yet implemented:
 **high scores**
 - Keep track of high scores
 - Don't forget to display final score on the game over screen! 
-**Ship upgrades**
-- The Space Station screen exists between levels (MVP: UPGRADE/SELL/BUY are placeholder menu items)
-- Wire up actual upgrade purchasing with space bucks
 **Different targets**
 - Things other than asteroids to kill for money
 **Asteroids have health**
