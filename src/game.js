@@ -1,5 +1,6 @@
 import { CANVAS, ASTEROID, INVULN, HUD, COIN, FRAGMENT, PARTICLE, WARP, WORMHOLE, STATION, SHIP } from './config.js';
 import UPGRADES from './upgrades.json';
+import { getLevel } from './levels.js';
 import { Ship } from './entities/ship.js';
 import { Bullet } from './entities/bullet.js';
 import { Asteroid } from './entities/asteroid.js';
@@ -28,7 +29,6 @@ export class Game {
     this.input = new Input();
     this.ship = new Ship(CANVAS.width / 2, CANVAS.height / 2);
     this.bullets = [];
-    this.asteroids = this._spawnInitialAsteroids();
     this._fragments = [];
     this._particles = [];
     this._coins        = [];
@@ -42,6 +42,7 @@ export class Game {
     this._state     = 'splash';
     this._menuIndex = 0;
     this._level         = 1;
+    this.asteroids = this._spawnInitialAsteroids(1);
     this._enterTimer    = 0;
     this._exitTimer     = 0;
     this._entryWormhole = null;
@@ -188,7 +189,6 @@ export class Game {
     this._wasThrusting = false;
     this.ship = new Ship(CANVAS.width / 2, CANVAS.height / 2);
     this.bullets = [];
-    this.asteroids = this._spawnInitialAsteroids();
     this._fragments = [];
     this._particles = [];
     this._coins        = [];
@@ -199,6 +199,7 @@ export class Game {
     this._warpTimer     = 0;
     this._invulnTimer   = INVULN.invulnDuration;
     this._level         = 1;
+    this.asteroids = this._spawnInitialAsteroids(1);
     this._enterTimer    = 0;
     this._exitTimer     = 0;
     this._entryWormhole = null;
@@ -348,7 +349,7 @@ export class Game {
     this._warpPhase     = 'none';
     this._warpTimer     = 0;
     this._exitWormhole  = null;
-    this.asteroids      = this._spawnInitialAsteroids();
+    this.asteroids      = this._spawnInitialAsteroids(this._level);
     this._startStation();
   }
 
@@ -563,15 +564,20 @@ export class Game {
     ctx.restore();
   }
 
-  _spawnInitialAsteroids() {
+  _spawnInitialAsteroids(level) {
     const asteroids = [];
     const shipX = CANVAS.width / 2;
     const shipY = CANVAS.height / 2;
-    while (asteroids.length < ASTEROID.spawnCount) {
-      const x = Math.random() * CANVAS.width;
-      const y = Math.random() * CANVAS.height;
-      if (Math.hypot(x - shipX, y - shipY) >= ASTEROID.safeRadius) {
-        asteroids.push(new Asteroid(x, y, 'large'));
+    const lvl = getLevel(level);
+    for (const { type, count } of lvl.spawn) {
+      let spawned = 0;
+      while (spawned < count) {
+        const x = Math.random() * CANVAS.width;
+        const y = Math.random() * CANVAS.height;
+        if (Math.hypot(x - shipX, y - shipY) >= ASTEROID.safeRadius) {
+          asteroids.push(new Asteroid(x, y, type));
+          spawned++;
+        }
       }
     }
     return asteroids;
@@ -627,6 +633,18 @@ export class Game {
       this.input.consumeDown();
       this._stationTimer += dt;
       if (this._stationTimer >= STATION.dockDuration) {
+        const lvl = getLevel(this._level);
+        this._stationPhase = lvl.pretext ? 'pretext' : 'docked';
+        this._stationTimer = 0;
+      }
+      return;
+    }
+
+    if (this._stationPhase === 'pretext') {
+      this.input.consumeUp();
+      this.input.consumeDown();
+      if (this.input.consumeFire()) {
+        playMenuSelect();
         this._stationPhase = 'docked';
         this._stationTimer = 0;
       }
@@ -651,7 +669,12 @@ export class Game {
       if (this.input.consumeFire()) {
         if (items[this._stationMenuIndex] === 'LAUNCH') {
           playMenuSelect();
-          this._stationPhase = 'launching';
+          const lvl = getLevel(this._level);
+          if (lvl.posttext) {
+            this._stationPhase = 'posttext';
+          } else {
+            this._stationPhase = 'launching';
+          }
           this._stationTimer = 0;
         } else if (items[this._stationMenuIndex] === 'UPGRADE') {
           playMenuSelect();
@@ -659,6 +682,17 @@ export class Game {
           this._upgradeMenuIndex = 0;
         }
         // SELL / BUY: placeholder — no action yet
+      }
+      return;
+    }
+
+    if (this._stationPhase === 'posttext') {
+      this.input.consumeUp();
+      this.input.consumeDown();
+      if (this.input.consumeFire()) {
+        playMenuSelect();
+        this._stationPhase = 'launching';
+        this._stationTimer = 0;
       }
       return;
     }
@@ -690,7 +724,9 @@ export class Game {
       };
     }
 
-    if (this._stationPhase === 'docked') {
+    if (this._stationPhase === 'docked' ||
+        this._stationPhase === 'pretext' ||
+        this._stationPhase === 'posttext') {
       return { x: dockX, y: dockY, angle: Math.PI, scale: 1 };
     }
 
@@ -747,6 +783,91 @@ export class Game {
     ctx.fill();
 
     ctx.restore();
+  }
+
+  _wrapText(ctx, text, maxWidth) {
+    const lines = [];
+    for (const paragraph of text.split('\n')) {
+      const words = paragraph.split(' ');
+      let line = '';
+      for (const word of words) {
+        const test = line ? line + ' ' + word : word;
+        if (ctx.measureText(test).width > maxWidth && line) {
+          lines.push(line);
+          line = word;
+        } else {
+          line = test;
+        }
+      }
+      lines.push(line);
+    }
+    return lines;
+  }
+
+  _renderStoryPanel(ctx) {
+    const { x: px, y: py, w: pw } = STATION.pane;
+    const lvl        = getLevel(this._level);
+    const isPretext  = this._stationPhase === 'pretext';
+    const text       = isPretext ? lvl.pretext : lvl.posttext;
+    const headerLabel = isPretext ? 'INCOMING TRANSMISSION' : 'MISSION BRIEFING';
+
+    const panelX = px + pw + 24;
+    const panelY = py;
+    const panelW = CANVAS.width - panelX - 16;
+    const panelH = CANVAS.height - panelY - 16;
+
+    // Background + border
+    ctx.fillStyle   = 'rgba(0,8,18,0.92)';
+    ctx.fillRect(panelX, panelY, panelW, panelH);
+    ctx.strokeStyle = STATION.borderColor;
+    ctx.lineWidth   = 1.5;
+    ctx.strokeRect(panelX, panelY, panelW, panelH);
+
+    const innerX   = panelX + 22;
+    const innerW   = panelW - 44;
+    let   curY     = panelY + 26;
+
+    // Small header label
+    ctx.textAlign    = 'left';
+    ctx.textBaseline = 'top';
+    ctx.font         = '12px "Courier New", monospace';
+    ctx.fillStyle    = STATION.borderColor;
+    ctx.fillText(headerLabel, innerX, curY);
+    curY += 20;
+
+    // Level title
+    ctx.font      = 'bold 20px "Courier New", monospace';
+    ctx.fillStyle = CANVAS.stroke;
+    ctx.fillText(lvl.title, innerX, curY);
+    curY += 32;
+
+    // Separator
+    ctx.strokeStyle = 'rgba(68,170,255,0.25)';
+    ctx.lineWidth   = 1;
+    ctx.beginPath();
+    ctx.moveTo(innerX, curY);
+    ctx.lineTo(panelX + panelW - 22, curY);
+    ctx.stroke();
+    curY += 18;
+
+    // Story text (wrapped, supports \n paragraphs)
+    ctx.font         = '15px "Courier New", monospace';
+    ctx.fillStyle    = 'rgba(255,255,255,0.82)';
+    ctx.textBaseline = 'top';
+    const lineHeight = 22;
+    const lines      = this._wrapText(ctx, text, innerW);
+    for (const line of lines) {
+      ctx.fillText(line, innerX, curY);
+      curY += lineHeight;
+    }
+
+    // Blinking dismiss prompt
+    const blink = Math.floor(performance.now() / 500) % 2 === 0;
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.font         = '14px "Courier New", monospace';
+    ctx.fillStyle    = blink ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.2)';
+    ctx.fillText('[ PRESS SPACE TO CONTINUE ]', panelX + panelW / 2, panelY + panelH - 14);
   }
 
   _renderStation(ctx) {
@@ -851,17 +972,21 @@ export class Game {
 
     ctx.restore(); // end pane clip
 
-    // Screen title + level indicator to the right of the pane
-    const titleX = (px + pw + CANVAS.width) / 2;
-    const titleY = py + ph / 2;
-    ctx.textAlign    = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.font         = 'bold 26px "Courier New", monospace';
-    ctx.fillStyle    = STATION.borderColor;
-    ctx.fillText('SPACE STATION', titleX, titleY - 14);
-    ctx.font      = '16px "Courier New", monospace';
-    ctx.fillStyle = 'rgba(255,255,255,0.5)';
-    ctx.fillText(`LEVEL ${this._level}`, titleX, titleY + 20);
+    // Story panel (pretext / posttext) OR title when idle
+    if (this._stationPhase === 'pretext' || this._stationPhase === 'posttext') {
+      this._renderStoryPanel(ctx);
+    } else {
+      const titleX = (px + pw + CANVAS.width) / 2;
+      const titleY = py + ph / 2;
+      ctx.textAlign    = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.font         = 'bold 26px "Courier New", monospace';
+      ctx.fillStyle    = STATION.borderColor;
+      ctx.fillText('SPACE STATION', titleX, titleY - 14);
+      ctx.font      = '16px "Courier New", monospace';
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.fillText(`LEVEL ${this._level}`, titleX, titleY + 20);
+    }
 
     // Menu (only when docked — shown after docking animation completes)
     if (this._stationPhase === 'docked') {
