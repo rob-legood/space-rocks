@@ -116,6 +116,12 @@ export function playCoinCollect() {
   });
 }
 
+export function playHit() {
+  // Short metallic clank — bandpass noise tick + brief pitch drop.
+  noiseBurst(950, 4.5, 0.09, 0.38);
+  sweep('triangle', 550, 260, 0.07, 0.1);
+}
+
 export function playCoinDestroy() {
   sweep('square', 400, 200, 0.06, 0.15);
 }

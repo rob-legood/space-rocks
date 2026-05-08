@@ -94,17 +94,29 @@ export const INVULN = {
 
 export const ASTEROID = {
   sizes: {
-    large:  { radius: 50, speedMin: 30,  speedMax: 60  },
-    medium: { radius: 25, speedMin: 50,  speedMax: 90  },
-    small:  { radius: 12, speedMin: 70,  speedMax: 130 },
+    large:  { radius: 50, speedMin: 30,  speedMax: 60,  hp: 3 },
+    medium: { radius: 25, speedMin: 50,  speedMax: 90,  hp: 2 },
+    small:  { radius: 12, speedMin: 70,  speedMax: 130, hp: 1 },
   },
-  minVertices: 8,
-  maxVertices: 12,
-  jaggedness:  0.35,  // ±35% radius jitter per vertex
-  rotationMin: 0.3,   // rad/s
-  rotationMax: 0.8,   // rad/s
-  spawnCount:  4,     // initial large asteroids
-  safeRadius:  150,   // min distance from ship start position
+  minVertices:      8,
+  maxVertices:      12,
+  jaggedness:       0.35,  // ±35% radius jitter per vertex
+  rotationMin:      0.3,   // rad/s
+  rotationMax:      0.8,   // rad/s
+  spawnCount:       4,     // initial large asteroids
+  safeRadius:       150,   // min distance from ship start position
+  hitFlashDuration: 0.12,  // seconds the red-hit tint lasts
+};
+
+export const HIT_SPARK = {
+  count:    5,
+  minSpeed: 40,   // px/s
+  maxSpeed: 110,  // px/s
+  minAge:   0.12, // seconds
+  maxAge:   0.28, // seconds
+  minRadius: 1,
+  maxRadius: 2,
+  color:    '#cce',  // pale blue-white
 };
 
 export const BULLET = {

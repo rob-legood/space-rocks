@@ -105,6 +105,10 @@ Shapes are defined in local space with the "front" at +x. `drawPolygon(ctx, poin
 
 The file UPGRADE.md documents the upgrade system design and all current upgrades. As new upgrades are added, document them there.
 
+## LEVELS.md
+
+The file LEVELS.md documents the level system design and all current levels (spawn config, story text). As new levels are added, document them there.
+
 ## DEVTOOLS.md
 
 This file contains cheat codes that are available to be used once dev-tool mode is activated.

@@ -33,19 +33,27 @@ export class Asteroid {
     this.angle = Math.random() * Math.PI * 2;
 
     this.shape = buildShape(cfg.radius);
+    this.hp = cfg.hp;
+    this.hitFlash = 0;
   }
 
   update(dt, bounds) {
     this.pos.x += this.vel.x * dt;
     this.pos.y += this.vel.y * dt;
     this.angle += this.rotVel * dt;
+    if (this.hitFlash > 0) this.hitFlash = Math.max(0, this.hitFlash - dt);
     wrap(this.pos, bounds.width, bounds.height);
   }
 
   draw(ctx, bounds) {
     const wrapRadius = this.radius * (1 + ASTEROID.jaggedness);
+    if (this.hitFlash > 0) {
+      ctx.save();
+      ctx.strokeStyle = '#f66';
+    }
     drawAtWrappedPositions(this.pos, wrapRadius, bounds, (x, y) => {
       drawPolygon(ctx, this.shape, { x, y, angle: this.angle });
     });
+    if (this.hitFlash > 0) ctx.restore();
   }
 }

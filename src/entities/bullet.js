@@ -3,7 +3,7 @@ import { add, scale, fromAngle } from '../utils/vector.js';
 import { wrap } from '../utils/canvas.js';
 
 export class Bullet {
-  constructor(ship) {
+  constructor(ship, damage = 1) {
     const dir = fromAngle(ship.angle);
     this.pos = add(ship.pos, scale(dir, SHIP.size));
     this.vel = fromAngle(ship.angle, BULLET.speed);
@@ -11,6 +11,7 @@ export class Bullet {
     this.age = 0;
     this.distanceTraveled = 0;
     this.dead = false;
+    this.damage = damage;
   }
 
   update(dt, bounds) {

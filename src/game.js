@@ -1,4 +1,4 @@
-import { CANVAS, ASTEROID, INVULN, HUD, COIN, FRAGMENT, PARTICLE, WARP, WORMHOLE, STATION, SHIP } from './config.js';
+import { CANVAS, ASTEROID, INVULN, HUD, COIN, FRAGMENT, PARTICLE, WARP, WORMHOLE, STATION, SHIP, HIT_SPARK } from './config.js';
 import UPGRADES from './upgrades.json';
 import { getLevel } from './levels.js';
 import { Ship } from './entities/ship.js';
@@ -10,7 +10,7 @@ import { Input } from './input.js';
 import { circlesOverlap } from './utils/collision.js';
 import { drawAtWrappedPositions, wrap } from './utils/canvas.js';
 import {
-  playFire, playBang, playExplosion,
+  playFire, playBang, playExplosion, playHit,
   playCoinCollect, playCoinDestroy,
   playWarpOut, playWarpIn,
   playMenuNav, playMenuSelect,
@@ -33,6 +33,7 @@ export class Game {
     this._particles = [];
     this._coins        = [];
     this._coinParticles = [];
+    this._hitParticles  = [];
     this._score        = 0;
     this._lives       = HUD.lives;
     this._warpPhase   = 'none'; // 'none' | 'out' | 'in'
@@ -166,6 +167,7 @@ export class Game {
       this.bullets        = [];
       this._coins         = [];
       this._coinParticles = [];
+      this._hitParticles  = [];
       this.ship.dead = true;
       this._state = 'gameover';
     } else {
@@ -193,6 +195,7 @@ export class Game {
     this._particles = [];
     this._coins        = [];
     this._coinParticles = [];
+    this._hitParticles  = [];
     this._score        = 0;
     this._lives       = HUD.lives;
     this._warpPhase     = 'none';
@@ -344,6 +347,7 @@ export class Game {
     this.bullets        = [];
     this._coins         = [];
     this._coinParticles = [];
+    this._hitParticles  = [];
     this._fragments     = [];
     this._particles     = [];
     this._warpPhase     = 'none';
@@ -622,6 +626,21 @@ export class Game {
         maxAge: COIN.sparkMinAge + Math.random() * (COIN.sparkMaxAge - COIN.sparkMinAge),
         radius: 1 + Math.random() * 1.5,
         color:  COIN.color,
+      });
+    }
+  }
+
+  _spawnHitParticles(pos) {
+    for (let i = 0; i < HIT_SPARK.count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = HIT_SPARK.minSpeed + Math.random() * (HIT_SPARK.maxSpeed - HIT_SPARK.minSpeed);
+      this._hitParticles.push({
+        pos:    { x: pos.x, y: pos.y },
+        vel:    { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed },
+        age:    0,
+        maxAge: HIT_SPARK.minAge + Math.random() * (HIT_SPARK.maxAge - HIT_SPARK.minAge),
+        radius: HIT_SPARK.minRadius + Math.random() * (HIT_SPARK.maxRadius - HIT_SPARK.minRadius),
+        color:  HIT_SPARK.color,
       });
     }
   }
@@ -1107,19 +1126,32 @@ export class Game {
     for (const b of this.bullets) b.update(dt, this.bounds);
     for (const a of this.asteroids) a.update(dt, this.bounds);
 
-    // Bullets vs asteroids: flag-and-filter so arrays aren't mutated mid-loop.
-    const hitAsteroids = new Set();
+    // Bullets vs asteroids: accumulate damage per asteroid so two bullets in one frame
+    // don't double-split, but do stack damage.
+    const asteroidHits = new Map(); // asteroid → { damage, impactPos }
     for (const b of this.bullets) {
       if (b.dead) continue;
       for (const a of this.asteroids) {
         if (circlesOverlap(b, a, this.bounds)) {
           b.dead = true;
-          hitAsteroids.add(a);
+          if (!asteroidHits.has(a)) {
+            asteroidHits.set(a, { damage: 0, impactPos: { x: b.pos.x, y: b.pos.y } });
+          }
+          asteroidHits.get(a).damage += b.damage;
           break;
         }
       }
     }
-    for (const a of hitAsteroids) this.splitAsteroid(a);
+    for (const [a, { damage, impactPos }] of asteroidHits) {
+      a.hp -= damage;
+      if (a.hp <= 0) {
+        this.splitAsteroid(a);
+      } else {
+        a.hitFlash = ASTEROID.hitFlashDuration;
+        this._spawnHitParticles(impactPos);
+        playHit();
+      }
+    }
 
     // Coins: move, spin, wrap, age.
     for (const c of this._coins) {
@@ -1164,6 +1196,14 @@ export class Game {
       p.age   += dt;
     }
     this._coinParticles = this._coinParticles.filter((p) => p.age < p.maxAge);
+
+    // Hit spark particles: move and expire.
+    for (const p of this._hitParticles) {
+      p.pos.x += p.vel.x * dt;
+      p.pos.y += p.vel.y * dt;
+      p.age   += dt;
+    }
+    this._hitParticles = this._hitParticles.filter((p) => p.age < p.maxAge);
 
     // Ship vs asteroids: skip while dead or invulnerable.
     if (!this.ship.dead && this._invulnTimer <= 0) {
@@ -1297,6 +1337,14 @@ export class Game {
     }
 
     for (const p of this._coinParticles) {
+      ctx.globalAlpha = (1 - p.age / p.maxAge) ** 1.5;
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.pos.x, p.pos.y, p.radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    for (const p of this._hitParticles) {
       ctx.globalAlpha = (1 - p.age / p.maxAge) ** 1.5;
       ctx.fillStyle = p.color;
       ctx.beginPath();
