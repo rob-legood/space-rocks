@@ -140,6 +140,19 @@ export const SHIP = {
   flameColor: '#f60',      // thrust flame stroke colour
 };
 
+export const ENEMY = {
+  radius:           12,     // collision and visual radius px
+  color:            '#f44', // stroke colour
+  hitFlashDuration: 0.12,   // seconds the red-hit tint lasts
+  coinCount:        5,      // coins spawned on death
+  bullet: {
+    speed:       280,  // px/s
+    maxDistance: 520,  // px before expiry
+    maxAge:      1.4,  // seconds before expiry
+    radius:      2,
+  },
+};
+
 export const STATION = {
   pane:      { x: 16, y: 48, w: 240, h: 160 }, // canvas coords for the animation pane
   stationX:  68,   // station hub center, pane-local

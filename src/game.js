@@ -1,9 +1,10 @@
-import { CANVAS, ASTEROID, INVULN, HUD, COIN, FRAGMENT, PARTICLE, WARP, WORMHOLE, STATION, SHIP, HIT_SPARK } from './config.js';
+import { CANVAS, ASTEROID, INVULN, HUD, COIN, FRAGMENT, PARTICLE, WARP, WORMHOLE, STATION, SHIP, HIT_SPARK, ENEMY } from './config.js';
 import UPGRADES from './upgrades.json';
 import { getLevel } from './levels.js';
 import { Ship } from './entities/ship.js';
 import { Bullet } from './entities/bullet.js';
 import { Asteroid } from './entities/asteroid.js';
+import { Enemy } from './entities/enemy.js';
 import { Wormhole } from './entities/wormhole.js';
 import { Starfield } from './entities/starfield.js';
 import { Input } from './input.js';
@@ -34,6 +35,9 @@ export class Game {
     this._coins        = [];
     this._coinParticles = [];
     this._hitParticles  = [];
+    this._enemies             = [];
+    this._enemyBullets        = [];
+    this._pendingEnemySpawns  = [];
     this._score        = 0;
     this._lives       = HUD.lives;
     this._warpPhase   = 'none'; // 'none' | 'out' | 'in'
@@ -196,6 +200,9 @@ export class Game {
     this._coins        = [];
     this._coinParticles = [];
     this._hitParticles  = [];
+    this._enemies             = [];
+    this._enemyBullets        = [];
+    this._pendingEnemySpawns  = [];
     this._score        = 0;
     this._lives       = HUD.lives;
     this._warpPhase     = 'none';
@@ -344,16 +351,18 @@ export class Game {
 
   _advanceLevel() {
     this._level++;
-    this.bullets        = [];
-    this._coins         = [];
-    this._coinParticles = [];
-    this._hitParticles  = [];
-    this._fragments     = [];
-    this._particles     = [];
-    this._warpPhase     = 'none';
-    this._warpTimer     = 0;
-    this._exitWormhole  = null;
-    this.asteroids      = this._spawnInitialAsteroids(this._level);
+    this.bullets              = [];
+    this._coins               = [];
+    this._coinParticles       = [];
+    this._hitParticles        = [];
+    this._fragments           = [];
+    this._particles           = [];
+    this._enemies             = [];
+    this._enemyBullets        = [];
+    this._warpPhase           = 'none';
+    this._warpTimer           = 0;
+    this._exitWormhole        = null;
+    this.asteroids            = this._spawnInitialAsteroids(this._level);
     this._startStation();
   }
 
@@ -570,17 +579,32 @@ export class Game {
 
   _spawnInitialAsteroids(level) {
     const asteroids = [];
+    this._pendingEnemySpawns = [];
     const shipX = CANVAS.width / 2;
     const shipY = CANVAS.height / 2;
     const lvl = getLevel(level);
-    for (const { type, count } of lvl.spawn) {
-      let spawned = 0;
-      while (spawned < count) {
-        const x = Math.random() * CANVAS.width;
-        const y = Math.random() * CANVAS.height;
-        if (Math.hypot(x - shipX, y - shipY) >= ASTEROID.safeRadius) {
-          asteroids.push(new Asteroid(x, y, type));
-          spawned++;
+    for (const entry of lvl.spawn) {
+      if (entry.type === 'enemy') {
+        const minT = entry.minSpawnTime ?? 5;
+        const maxT = entry.maxSpawnTime ?? 10;
+        for (let i = 0; i < (entry.count ?? 1); i++) {
+          this._pendingEnemySpawns.push({
+            timer:        minT + Math.random() * (maxT - minT),
+            speed:        entry.speed        ?? 60,
+            shotInterval: entry.shotInterval ?? 1,
+            hp:           entry.hp           ?? 1,
+          });
+        }
+      } else {
+        const { type, count } = entry;
+        let spawned = 0;
+        while (spawned < count) {
+          const x = Math.random() * CANVAS.width;
+          const y = Math.random() * CANVAS.height;
+          if (Math.hypot(x - shipX, y - shipY) >= ASTEROID.safeRadius) {
+            asteroids.push(new Asteroid(x, y, type));
+            spawned++;
+          }
         }
       }
     }
@@ -1126,6 +1150,44 @@ export class Game {
     for (const b of this.bullets) b.update(dt, this.bounds);
     for (const a of this.asteroids) a.update(dt, this.bounds);
 
+    // Tick pending enemy spawns (only while level is still active).
+    if (this._state === 'playing') {
+      const ready = [];
+      for (const p of this._pendingEnemySpawns) {
+        p.timer -= dt;
+        if (p.timer <= 0) ready.push(p);
+      }
+      this._pendingEnemySpawns = this._pendingEnemySpawns.filter(p => p.timer > 0);
+      for (const p of ready) {
+        let x, y;
+        do {
+          x = Math.random() * CANVAS.width;
+          y = Math.random() * CANVAS.height;
+        } while (Math.hypot(x - this.ship.pos.x, y - this.ship.pos.y) < ASTEROID.safeRadius);
+        this._enemies.push(new Enemy(x, y, { speed: p.speed, shotInterval: p.shotInterval, hp: p.hp }));
+      }
+    }
+
+    // Update enemies and collect any shots they fire.
+    for (const e of this._enemies) {
+      e.update(dt, this.bounds);
+      const shot = e.tryFire();
+      if (shot) this._enemyBullets.push(shot);
+    }
+
+    // Update enemy bullets.
+    for (const b of this._enemyBullets) {
+      b.age += dt;
+      const dx = b.vel.x * dt;
+      const dy = b.vel.y * dt;
+      b.distanceTraveled += Math.hypot(dx, dy);
+      b.pos.x += dx;
+      b.pos.y += dy;
+      wrap(b.pos, this.bounds.width, this.bounds.height);
+      if (b.age >= b.maxAge || b.distanceTraveled >= b.maxDistance) b.dead = true;
+    }
+    this._enemyBullets = this._enemyBullets.filter(b => !b.dead);
+
     // Bullets vs asteroids: accumulate damage per asteroid so two bullets in one frame
     // don't double-split, but do stack damage.
     const asteroidHits = new Map(); // asteroid → { damage, impactPos }
@@ -1170,6 +1232,32 @@ export class Game {
       this.asteroids = this.asteroids.filter(x => x !== a);
       if (a.deathDropsCoin) this._spawnCoins(a.pos, 1);
     }
+
+    // Player bullets vs enemies.
+    for (const b of this.bullets) {
+      if (b.dead) continue;
+      for (const e of this._enemies) {
+        if (circlesOverlap(b, e, this.bounds)) {
+          b.dead = true;
+          e.hp -= b.damage;
+          if (e.hp > 0) {
+            e.hitFlash = ENEMY.hitFlashDuration;
+            this._spawnHitParticles(b.pos);
+            playHit();
+          }
+          break;
+        }
+      }
+    }
+    // Remove killed enemies and drop coins.
+    this._enemies = this._enemies.filter(e => {
+      if (e.hp <= 0) {
+        this._spawnCoins(e.pos, ENEMY.coinCount);
+        playBang('small');
+        return false;
+      }
+      return true;
+    });
 
     // Coins: move, spin, wrap, age.
     for (const c of this._coins) {
@@ -1229,6 +1317,26 @@ export class Game {
         if (circlesOverlap(this.ship, a, this.bounds)) {
           this._killShip();
           break;
+        }
+      }
+      // Enemy bullets vs ship.
+      if (!this.ship.dead) {
+        for (const b of this._enemyBullets) {
+          if (circlesOverlap(b, this.ship, this.bounds)) {
+            b.dead = true;
+            this._killShip();
+            break;
+          }
+        }
+        this._enemyBullets = this._enemyBullets.filter(b => !b.dead);
+      }
+      // Ship vs enemies.
+      if (!this.ship.dead) {
+        for (const e of this._enemies) {
+          if (circlesOverlap(this.ship, e, this.bounds)) {
+            this._killShip();
+            break;
+          }
         }
       }
     }
@@ -1328,9 +1436,18 @@ export class Game {
     }
 
     for (const a of this.asteroids) a.draw(ctx, this.bounds);
+    for (const e of this._enemies) e.draw(ctx, this.bounds);
 
     ctx.fillStyle = CANVAS.stroke;
     for (const b of this.bullets) b.draw(ctx);
+
+    // Enemy bullets drawn in red.
+    ctx.fillStyle = ENEMY.color;
+    for (const b of this._enemyBullets) {
+      ctx.beginPath();
+      ctx.arc(b.pos.x, b.pos.y, b.radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
 
     for (const c of this._coins) {
       let alpha = 1;

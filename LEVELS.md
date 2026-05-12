@@ -16,9 +16,22 @@ Each entry in the `LEVELS` array has:
 
 ### `spawn` entries
 
-Each entry in `spawn` is `{ type: string, count: number }`. `type` matches an `ASTEROID.sizes` key (`'large'`, `'medium'`, `'small'`) today, but is designed to accommodate future entity types. Multiple entries are supported — e.g., a mix of large and medium asteroids on the same level.
+Each entry in `spawn` is `{ type: string, count: number, ...options }`. `type` is either an `ASTEROID.sizes` key (`'large'`, `'medium'`, `'small'`, etc.) or `'enemy'`. Multiple entries are supported — e.g., a mix of large asteroids and an enemy on the same level.
 
-All spawned objects are placed at random positions at least `ASTEROID.safeRadius` px from the ship start point (canvas centre). Spawn is called once when `_advanceLevel` runs, before the station screen appears; the objects drift frozen in place until the player launches.
+**Asteroid entries** — placed at random positions at least `ASTEROID.safeRadius` px from the ship start point. Spawn is called once when `_advanceLevel` runs; the objects drift frozen in place until the player launches.
+
+**Enemy entries** — enemies do not spawn immediately. Instead they are registered as pending spawns with a random delay between `minSpawnTime` and `maxSpawnTime` seconds (measured from when the level starts). The enemy then appears at a random safe position and drifts in a single direction, firing in random directions on a timer.
+
+| Enemy option     | Type   | Default | Description                                 |
+|------------------|--------|---------|---------------------------------------------|
+| `count`          | number | —       | Number of enemies to schedule               |
+| `speed`          | number | 60      | Movement speed in px/s                      |
+| `shotInterval`   | number | 1       | Seconds between shots                       |
+| `minSpawnTime`   | number | 5       | Earliest the enemy can appear (seconds)     |
+| `maxSpawnTime`   | number | 10      | Latest the enemy can appear (seconds)       |
+| `hp`             | number | 1       | Hit points (1 shot = 1 damage)              |
+
+Enemies drop 5 coins on death and do not count toward level completion (all asteroid types must be cleared instead).
 
 ### Story text
 
@@ -46,13 +59,13 @@ No changes to `game.js` or `config.js` are needed unless the spawn introduces a 
 
 ### Level 1: First Contact
 
-| Field    | Value                            |
-|----------|----------------------------------|
-| Spawn    | 1 large asteroid                 |
-| Pretext  | Welcome / station intro          |
-| Posttext | Single asteroid intercept order  |
+| Field    | Value                                                                 |
+|----------|-----------------------------------------------------------------------|
+| Spawn    | 1 dangerous asteroid + 1 enemy (speed 55, 1 shot/s, spawns 5–10 s)  |
+| Pretext  | Welcome / station intro                                               |
+| Posttext | Single asteroid intercept order                                       |
 
-Introductory level. One large rock — splits into 2 mediums then 4 smalls for a gentle ramp-up.
+Introductory level. One dangerous rock (splits into 12 tiny fast asteroids). An enemy ship appears 5–10 seconds after launch, drifts in a straight line, and fires in random directions once per second. It has 1 HP and drops 5 coins on death.
 
 ---
 
