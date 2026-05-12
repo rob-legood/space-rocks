@@ -588,19 +588,19 @@ export class Game {
   }
 
   splitAsteroid(asteroid) {
-    playBang(asteroid.size);
+    playBang(asteroid.bangSize);
     this.asteroids = this.asteroids.filter((a) => a !== asteroid);
-    const next = { large: 'medium', medium: 'small' }[asteroid.size];
-    if (next) {
-      this.asteroids.push(new Asteroid(asteroid.pos.x, asteroid.pos.y, next));
-      this.asteroids.push(new Asteroid(asteroid.pos.x, asteroid.pos.y, next));
+    if (asteroid.childType && asteroid.childCount > 0) {
+      for (let i = 0; i < asteroid.childCount; i++) {
+        this.asteroids.push(new Asteroid(asteroid.pos.x, asteroid.pos.y, asteroid.childType));
+      }
     } else {
       this._spawnCoins(asteroid.pos);
     }
   }
 
-  _spawnCoins(pos) {
-    const count = COIN.minCount + Math.floor(Math.random() * (COIN.maxCount - COIN.minCount + 1));
+  _spawnCoins(pos, count = null) {
+    count = count ?? (COIN.minCount + Math.floor(Math.random() * (COIN.maxCount - COIN.minCount + 1)));
     for (let i = 0; i < count; i++) {
       const angle = Math.random() * Math.PI * 2;
       const speed = COIN.minSpeed + Math.random() * (COIN.maxSpeed - COIN.minSpeed);
@@ -1132,6 +1132,7 @@ export class Game {
     for (const b of this.bullets) {
       if (b.dead) continue;
       for (const a of this.asteroids) {
+        if (a.dying) continue; // immune while death countdown is running
         if (circlesOverlap(b, a, this.bounds)) {
           b.dead = true;
           if (!asteroidHits.has(a)) {
@@ -1145,12 +1146,29 @@ export class Game {
     for (const [a, { damage, impactPos }] of asteroidHits) {
       a.hp -= damage;
       if (a.hp <= 0) {
-        this.splitAsteroid(a);
+        if (a.dyingDuration > 0) {
+          a.dying = true;
+          a.dyingTimer = a.dyingDuration;
+        } else {
+          this.splitAsteroid(a);
+        }
       } else {
         a.hitFlash = ASTEROID.hitFlashDuration;
         this._spawnHitParticles(impactPos);
         playHit();
       }
+    }
+
+    // Dying asteroids whose countdown has elapsed now explode.
+    for (const a of this.asteroids.filter(x => x.dying && x.dyingTimer <= 0)) {
+      this.splitAsteroid(a);
+    }
+
+    // Tiny asteroids that reached their natural lifespan expire and drop a coin.
+    const agedOut = this.asteroids.filter(a => a.maxAge !== null && a.age >= a.maxAge);
+    for (const a of agedOut) {
+      this.asteroids = this.asteroids.filter(x => x !== a);
+      if (a.deathDropsCoin) this._spawnCoins(a.pos, 1);
     }
 
     // Coins: move, spin, wrap, age.
@@ -1215,8 +1233,8 @@ export class Game {
       }
     }
 
-    // Level complete: last asteroid just cleared during active play.
-    if (this._state === 'playing' && this.asteroids.length === 0) {
+    // Level complete: all required (non-optional) asteroids cleared during active play.
+    if (this._state === 'playing' && this.asteroids.filter(a => !a.optional).length === 0) {
       this._state = 'levelcomplete';
       this._exitWormhole = this._spawnExitWormhole();
     }

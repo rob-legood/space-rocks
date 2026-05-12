@@ -2,7 +2,7 @@ export const LEVELS = [
   {
     id: 1,
     title: 'Level 1: First Contact',
-    spawn: [{ type: 'large', count: 1 }],
+    spawn: [{ type: 'dangerous', count: 1 }],
     pretext: 'Welcome to the frontier, pilot. You\'ve been assigned to Waystation Alpha, our last outpost on the edge of explored space.\n\nYour fighter has been fuelled and armed. The station crew is counting on you.',
     posttext: 'Long-range sensors have picked up a large asteroid drifting toward the station. One rock — but it\'s a big one.\n\nIntercept and destroy it before it reaches us. Good luck out there.',
   },

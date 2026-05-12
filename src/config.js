@@ -94,18 +94,23 @@ export const INVULN = {
 
 export const ASTEROID = {
   sizes: {
-    large:  { radius: 50, speedMin: 30,  speedMax: 60,  hp: 3 },
-    medium: { radius: 25, speedMin: 50,  speedMax: 90,  hp: 2 },
-    small:  { radius: 12, speedMin: 70,  speedMax: 130, hp: 1 },
+    large:     { radius: 50, speedMin: 30,  speedMax: 60,  hp: 3, childType: 'medium', childCount: 2 },
+    medium:    { radius: 25, speedMin: 50,  speedMax: 90,  hp: 2, childType: 'small',  childCount: 2 },
+    small:     { radius: 12, speedMin: 70,  speedMax: 130, hp: 1, childType: null,     childCount: 0 },
+    fragile:   { radius: 38, speedMin: 45,  speedMax: 85,  hp: 1, childType: 'small',  childCount: 10, color: '#c8a0f0', bangSize: 'large' },
+    dangerous: { radius: 14, speedMin: 70,  speedMax: 130, hp: 1, childType: 'tiny',   childCount: 12,  color: '#f33',    bangSize: 'large', optional: true, dyingDuration: 2.0 },
+    tiny:      { radius: 5,  speedMin: 200, speedMax: 340, hp: 1, childType: null,     childCount: 0,  maxAge: 5.0, deathDropsCoin: true },
   },
-  minVertices:      8,
-  maxVertices:      12,
-  jaggedness:       0.35,  // ±35% radius jitter per vertex
-  rotationMin:      0.3,   // rad/s
-  rotationMax:      0.8,   // rad/s
-  spawnCount:       4,     // initial large asteroids
-  safeRadius:       150,   // min distance from ship start position
-  hitFlashDuration: 0.12,  // seconds the red-hit tint lasts
+  minVertices:        8,
+  maxVertices:        12,
+  jaggedness:         0.35,  // ±35% radius jitter per vertex
+  rotationMin:        0.3,   // rad/s
+  rotationMax:        0.8,   // rad/s
+  spawnCount:         4,     // initial large asteroids
+  safeRadius:         150,   // min distance from ship start position
+  hitFlashDuration:   0.12,  // seconds the red-hit tint lasts
+  dyingPulseFreqStart: 4,    // rad/s — pulse rate at start of dying countdown
+  dyingPulseFreqEnd:   22,   // rad/s — pulse rate just before explosion
 };
 
 export const HIT_SPARK = {
