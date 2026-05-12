@@ -2,11 +2,12 @@ import { ENEMY } from '../config.js';
 import { drawAtWrappedPositions, wrap } from '../utils/canvas.js';
 
 export class Enemy {
-  constructor(x, y, { speed = 60, shotInterval = 1, hp = 1 } = {}) {
+  constructor(x, y, { speed = 60, shotInterval = 1, hp = 1, size = ENEMY.radius, coinCount = ENEMY.coinCount } = {}) {
     this.pos = { x, y };
     const angle = Math.random() * Math.PI * 2;
     this.vel = { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed };
-    this.radius = ENEMY.radius;
+    this.radius = size;
+    this.coinCount = coinCount;
     this.hp = hp;
     this.hitFlash = 0;
     // Stagger first shot so enemies spawning simultaneously don't all fire at once.
@@ -44,7 +45,7 @@ export class Enemy {
     ctx.save();
     ctx.strokeStyle = this.hitFlash > 0 ? '#f66' : ENEMY.color;
     drawAtWrappedPositions(this.pos, this.radius, bounds, (x, y) => {
-      const r = ENEMY.radius;
+      const r = this.radius;
       // Diamond body with horizontal bar — visually distinct from asteroids and ship.
       ctx.beginPath();
       ctx.moveTo(x, y - r);

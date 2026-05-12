@@ -593,6 +593,8 @@ export class Game {
             speed:        entry.speed        ?? 60,
             shotInterval: entry.shotInterval ?? 1,
             hp:           entry.hp           ?? 1,
+            size:         entry.size         ?? undefined,
+            coinCount:    entry.coinCount     ?? undefined,
           });
         }
       } else {
@@ -1164,7 +1166,7 @@ export class Game {
           x = Math.random() * CANVAS.width;
           y = Math.random() * CANVAS.height;
         } while (Math.hypot(x - this.ship.pos.x, y - this.ship.pos.y) < ASTEROID.safeRadius);
-        this._enemies.push(new Enemy(x, y, { speed: p.speed, shotInterval: p.shotInterval, hp: p.hp }));
+        this._enemies.push(new Enemy(x, y, { speed: p.speed, shotInterval: p.shotInterval, hp: p.hp, size: p.size, coinCount: p.coinCount }));
       }
     }
 
@@ -1252,7 +1254,7 @@ export class Game {
     // Remove killed enemies and drop coins.
     this._enemies = this._enemies.filter(e => {
       if (e.hp <= 0) {
-        this._spawnCoins(e.pos, ENEMY.coinCount);
+        this._spawnCoins(e.pos, e.coinCount);
         playBang('small');
         return false;
       }
