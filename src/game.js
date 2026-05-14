@@ -679,13 +679,13 @@ export class Game {
       this._stationTimer += dt;
       if (this._stationTimer >= STATION.dockDuration) {
         const lvl = getLevel(this._level);
-        this._stationPhase = lvl.pretext ? 'pretext' : 'docked';
+        this._stationPhase = lvl.storytext ? 'storytext' : 'docked';
         this._stationTimer = 0;
       }
       return;
     }
 
-    if (this._stationPhase === 'pretext') {
+    if (this._stationPhase === 'storytext') {
       this.input.consumeUp();
       this.input.consumeDown();
       if (this.input.consumeFire()) {
@@ -714,12 +714,7 @@ export class Game {
       if (this.input.consumeFire()) {
         if (items[this._stationMenuIndex] === 'LAUNCH') {
           playMenuSelect();
-          const lvl = getLevel(this._level);
-          if (lvl.posttext) {
-            this._stationPhase = 'posttext';
-          } else {
-            this._stationPhase = 'launching';
-          }
+          this._stationPhase = 'launching';
           this._stationTimer = 0;
         } else if (items[this._stationMenuIndex] === 'UPGRADE') {
           playMenuSelect();
@@ -727,17 +722,6 @@ export class Game {
           this._upgradeMenuIndex = 0;
         }
         // SELL / BUY: placeholder — no action yet
-      }
-      return;
-    }
-
-    if (this._stationPhase === 'posttext') {
-      this.input.consumeUp();
-      this.input.consumeDown();
-      if (this.input.consumeFire()) {
-        playMenuSelect();
-        this._stationPhase = 'launching';
-        this._stationTimer = 0;
       }
       return;
     }
@@ -770,8 +754,7 @@ export class Game {
     }
 
     if (this._stationPhase === 'docked' ||
-        this._stationPhase === 'pretext' ||
-        this._stationPhase === 'posttext') {
+        this._stationPhase === 'storytext') {
       return { x: dockX, y: dockY, angle: Math.PI, scale: 1 };
     }
 
@@ -852,9 +835,8 @@ export class Game {
   _renderStoryPanel(ctx) {
     const { x: px, y: py, w: pw } = STATION.pane;
     const lvl        = getLevel(this._level);
-    const isPretext  = this._stationPhase === 'pretext';
-    const text       = isPretext ? lvl.pretext : lvl.posttext;
-    const headerLabel = isPretext ? 'INCOMING TRANSMISSION' : 'MISSION BRIEFING';
+    const text        = lvl.storytext;
+    const headerLabel = 'INCOMING TRANSMISSION';
 
     const panelX = px + pw + 24;
     const panelY = py;
@@ -1017,8 +999,8 @@ export class Game {
 
     ctx.restore(); // end pane clip
 
-    // Story panel (pretext / posttext) OR title when idle
-    if (this._stationPhase === 'pretext' || this._stationPhase === 'posttext') {
+    // Story panel (storytext) OR title when idle
+    if (this._stationPhase === 'storytext') {
       this._renderStoryPanel(ctx);
     } else {
       const titleX = (px + pw + CANVAS.width) / 2;
