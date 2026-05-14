@@ -1,6 +1,6 @@
 import { CANVAS, ASTEROID, INVULN, HUD, COIN, FRAGMENT, PARTICLE, WARP, WORMHOLE, STATION, SHIP, HIT_SPARK, ENEMY } from './config.js';
 import UPGRADES from './upgrades.json';
-import { getLevel } from './levels.js';
+import { getLevel, LEVEL_ZERO } from './levels.js';
 import { Ship } from './entities/ship.js';
 import { Bullet } from './entities/bullet.js';
 import { Asteroid } from './entities/asteroid.js';
@@ -46,8 +46,8 @@ export class Game {
     this._wasThrusting  = false;
     this._state     = 'splash';
     this._menuIndex = 0;
-    this._level         = 1;
-    this.asteroids = this._spawnInitialAsteroids(1);
+    this._level         = LEVEL_ZERO.enabled ? 0 : 1;
+    this.asteroids = this._spawnInitialAsteroids(this._level);
     this._enterTimer    = 0;
     this._exitTimer     = 0;
     this._entryWormhole = null;
@@ -208,8 +208,8 @@ export class Game {
     this._warpPhase     = 'none';
     this._warpTimer     = 0;
     this._invulnTimer   = INVULN.invulnDuration;
-    this._level         = 1;
-    this.asteroids = this._spawnInitialAsteroids(1);
+    this._level         = LEVEL_ZERO.enabled ? 0 : 1;
+    this.asteroids = this._spawnInitialAsteroids(this._level);
     this._enterTimer    = 0;
     this._exitTimer     = 0;
     this._entryWormhole = null;

@@ -612,7 +612,24 @@ export const ENDGAME_TEXT =
   'You\'re docking now, Captain. The bay doors are open. The whole crew is there. Even the cat. The cat is wearing a tiny medal that Engineering welded together out of dilithium shavings. The N on the hull is still backwards.\n\n' +
   'Welcome home.\n\n— Commander';
 
+// =============================================================
+// Dev sandbox level. Set enabled: true to load this before L1.
+// Clear it out and populate spawn[] with whatever entity you're
+// testing. Never counts toward the campaign — completing it drops
+// straight into the normal station flow for L1.
+// =============================================================
+export const LEVEL_ZERO = {
+  id: 0,
+  enabled: true,
+  title: 'Level 0: Dev Sandbox',
+  spawn: [
+    { type: 'large', count: 5 },
+  ],
+  storytext: null,
+};
+
 export function getLevel(n) {
+  if (n === 0) return LEVEL_ZERO;
   if (n <= LEVELS.length) return LEVELS[n - 1];
   // Beyond defined levels: escalate with no story text
   const extra = n - LEVELS.length;
