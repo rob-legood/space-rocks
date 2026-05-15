@@ -18,6 +18,7 @@ import {
   playMenuNav, playMenuSelect,
   startThrust, stopThrust,
 } from './audio.js';
+import { playMusic, stopMusic } from './music.js';
 
 export class Game {
   constructor(canvas) {
@@ -171,6 +172,7 @@ export class Game {
     this._wasThrusting = false;
     this._lives -= 1;
     if (this._lives <= 0) {
+      stopMusic();
       playExplosion();
       this._fragments = Ship.explode(this.ship, FRAGMENT);
       this._particles = this._spawnParticles(this.ship);
@@ -201,6 +203,7 @@ export class Game {
 
   _resetGame() {
     stopThrust();
+    stopMusic();
     this._wasThrusting = false;
     this.ship = new Ship(CANVAS.width / 2, CANVAS.height / 2);
     this.bullets = [];
@@ -239,6 +242,7 @@ export class Game {
 
   _startStation() {
     stopThrust();
+    playMusic('station');
     this._wasThrusting    = false;
     this._stationPhase    = 'docking';
     this._stationTimer    = 0;
@@ -365,6 +369,7 @@ export class Game {
 
   _advanceLevel() {
     this._level++;
+    this.starfield = new Starfield();
     this.bullets              = [];
     this._coins               = [];
     this._coinParticles       = [];
@@ -407,6 +412,7 @@ export class Game {
       this._entryWormhole = null;
       this._invulnTimer   = INVULN.invulnDuration;
       this._state         = 'playing';
+      playMusic('playing');
     }
   }
 
@@ -1113,10 +1119,14 @@ export class Game {
       ctx.textBaseline = 'middle';
       ctx.font         = 'bold 26px "Courier New", monospace';
       ctx.fillStyle    = STATION.borderColor;
-      ctx.fillText('SPACE STATION', titleX, titleY - 14);
+      ctx.fillText('SPACE STATION', titleX, titleY - 22);
       ctx.font      = '16px "Courier New", monospace';
       ctx.fillStyle = 'rgba(255,255,255,0.5)';
-      ctx.fillText(`LEVEL ${this._level}`, titleX, titleY + 20);
+      ctx.fillText(`LEVEL ${this._level}`, titleX, titleY + 10);
+      const subtitle = getLevel(this._level).title.replace(/^Level \d+:\s*/, '');
+      ctx.font      = '13px "Courier New", monospace';
+      ctx.fillStyle = 'rgba(255,255,255,0.35)';
+      ctx.fillText(subtitle, titleX, titleY + 32);
     }
 
     // Menu (only when docked — shown after docking animation completes)
@@ -1186,6 +1196,7 @@ export class Game {
       this.asteroids    = [];
       this._state       = 'levelcomplete';
       this._exitWormhole = this._spawnExitWormhole();
+      playMusic('victory');
     }
   }
 
@@ -1247,6 +1258,7 @@ export class Game {
         if (p.timer <= 0) ready.push(p);
       }
       this._pendingEnemySpawns = this._pendingEnemySpawns.filter(p => p.timer > 0);
+      const hadEnemies = this._enemies.length > 0;
       for (const p of ready) {
         let x, y;
         do {
@@ -1255,6 +1267,7 @@ export class Game {
         } while (Math.hypot(x - this.ship.pos.x, y - this.ship.pos.y) < ASTEROID.safeRadius);
         this._enemies.push(new Enemy(x, y, { speed: p.speed, shotInterval: p.shotInterval, hp: p.hp, size: p.size, minCoins: p.minCoins, maxCoins: p.maxCoins, minPlatinum: p.minPlatinum, maxPlatinum: p.maxPlatinum, minDilithium: p.minDilithium, maxDilithium: p.maxDilithium }));
       }
+      if (!hadEnemies && this._enemies.length > 0) playMusic('enemy');
     }
 
     // Update enemies and collect any shots they fire.
@@ -1339,6 +1352,7 @@ export class Game {
       }
     }
     // Remove killed enemies and drop coins.
+    const enemyCountBefore = this._enemies.length;
     this._enemies = this._enemies.filter(e => {
       if (e.hp <= 0) {
         this._spawnResources(e.pos, e);
@@ -1347,6 +1361,7 @@ export class Game {
       }
       return true;
     });
+    if (enemyCountBefore > 0 && this._enemies.length === 0) playMusic('playing');
 
     // Coins: move, spin, wrap, age.
     for (const c of this._coins) {
@@ -1538,6 +1553,7 @@ export class Game {
         this._pendingEnemySpawns.length === 0) {
       this._state = 'levelcomplete';
       this._exitWormhole = this._spawnExitWormhole();
+      playMusic('victory');
     }
 
     // Exit wormhole: player navigates to it to trigger the exit animation.

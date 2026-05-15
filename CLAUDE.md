@@ -109,6 +109,10 @@ The file UPGRADE.md documents the upgrade system design and all current upgrades
 
 The file LEVELS.md documents the level system design and all current levels (spawn config, story text). As new levels are added, document them there.
 
+## SONGS.md
+
+The file SONGS.md documents the music system (sequencer architecture, note format) and all current tracks. When adding a new music track, read SONGS.md first, add the track to `src/music.js`, wire the `playMusic('name')` call into `src/game.js` at the appropriate state transition, then document it in SONGS.md.
+
 ## DEVTOOLS.md
 
 This file contains cheat codes that are available to be used once dev-tool mode is activated.
