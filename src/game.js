@@ -13,7 +13,7 @@ import { circlesOverlap } from './utils/collision.js';
 import { drawAtWrappedPositions, wrap } from './utils/canvas.js';
 import {
   playFire, playBang, playExplosion, playHit,
-  playCoinCollect, playCoinDestroy, playCargoDestroy,
+  playCoinCollect, playCoinDestroy, playCargoDestroy, playEnemyFire,
   playWarpOut, playWarpIn,
   playMenuNav, playMenuSelect,
   startThrust, stopThrust,
@@ -402,6 +402,7 @@ export class Game {
     }
     this._entryWormhole.update(dt);
     for (const a of this.asteroids) a.update(dt, this.bounds);
+    for (const c of this._cargos) c.update(dt, this.bounds);
     if (this._enterTimer >= WORMHOLE.enterDuration) {
       this._entryWormhole = null;
       this._invulnTimer   = INVULN.invulnDuration;
@@ -420,6 +421,7 @@ export class Game {
     ctx.lineJoin    = 'round';
 
     for (const a of this.asteroids) a.draw(ctx, this.bounds);
+    for (const c of this._cargos) c.draw(ctx, this.bounds);
 
     const openFactor = Math.min(this._enterTimer / WORMHOLE.enterDuration, 1);
 
@@ -1259,7 +1261,7 @@ export class Game {
     for (const e of this._enemies) {
       e.update(dt, this.bounds);
       const shot = e.tryFire();
-      if (shot) this._enemyBullets.push(shot);
+      if (shot) { this._enemyBullets.push(shot); playEnemyFire(); }
     }
 
     // Update enemy bullets.
@@ -1529,8 +1531,11 @@ export class Game {
       if (hitCargos.size > 0) this._cargos = this._cargos.filter(c => !hitCargos.has(c));
     }
 
-    // Level complete: all required (non-optional) asteroids cleared during active play.
-    if (this._state === 'playing' && this.asteroids.filter(a => !a.optional).length === 0) {
+    // Level complete: all required asteroids cleared and all enemies dead or pending.
+    if (this._state === 'playing' &&
+        this.asteroids.filter(a => !a.optional).length === 0 &&
+        this._enemies.length === 0 &&
+        this._pendingEnemySpawns.length === 0) {
       this._state = 'levelcomplete';
       this._exitWormhole = this._spawnExitWormhole();
     }

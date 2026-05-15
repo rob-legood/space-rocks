@@ -126,6 +126,12 @@ export function playCoinDestroy() {
   sweep('square', 400, 200, 0.06, 0.15);
 }
 
+export function playEnemyFire() {
+  // Low growling pulse — descending sawtooth snarl + sub-bass thud.
+  sweep('sawtooth', 180, 55, 0.18, 0.35);
+  noiseBurst(90, 1.2, 0.14, 0.28);
+}
+
 export function playCargoDestroy() {
   // Woody thunk: mid-frequency noise burst + short descending thud.
   noiseBurst(220, 3.5, 0.28, 0.85);
