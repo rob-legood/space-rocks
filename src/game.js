@@ -1,4 +1,4 @@
-import { CANVAS, ASTEROID, INVULN, HUD, COIN, FRAGMENT, PARTICLE, WARP, WORMHOLE, STATION, SHIP, HIT_SPARK, ENEMY } from './config.js';
+import { CANVAS, ASTEROID, INVULN, HUD, COIN, PLATINUM, DILITHIUM, FRAGMENT, PARTICLE, WARP, WORMHOLE, STATION, SHIP, HIT_SPARK, ENEMY } from './config.js';
 import UPGRADES from './upgrades.json';
 import { getLevel, LEVEL_ZERO } from './levels.js';
 import { Ship } from './entities/ship.js';
@@ -32,8 +32,11 @@ export class Game {
     this.bullets = [];
     this._fragments = [];
     this._particles = [];
-    this._coins        = [];
-    this._coinParticles = [];
+    this._coins            = [];
+    this._coinParticles    = [];
+    this._platinum         = [];
+    this._platinumParticles= [];
+    this._dilithium        = [];
     this._hitParticles  = [];
     this._enemies             = [];
     this._enemyBullets        = [];
@@ -168,10 +171,13 @@ export class Game {
       playExplosion();
       this._fragments = Ship.explode(this.ship, FRAGMENT);
       this._particles = this._spawnParticles(this.ship);
-      this.bullets        = [];
-      this._coins         = [];
-      this._coinParticles = [];
-      this._hitParticles  = [];
+      this.bullets               = [];
+      this._coins                = [];
+      this._coinParticles        = [];
+      this._platinum             = [];
+      this._platinumParticles    = [];
+      this._dilithium            = [];
+      this._hitParticles         = [];
       this.ship.dead = true;
       this._state = 'gameover';
     } else {
@@ -197,8 +203,11 @@ export class Game {
     this.bullets = [];
     this._fragments = [];
     this._particles = [];
-    this._coins        = [];
-    this._coinParticles = [];
+    this._coins            = [];
+    this._coinParticles    = [];
+    this._platinum         = [];
+    this._platinumParticles= [];
+    this._dilithium        = [];
     this._hitParticles  = [];
     this._enemies             = [];
     this._enemyBullets        = [];
@@ -354,6 +363,9 @@ export class Game {
     this.bullets              = [];
     this._coins               = [];
     this._coinParticles       = [];
+    this._platinum            = [];
+    this._platinumParticles   = [];
+    this._dilithium           = [];
     this._hitParticles        = [];
     this._fragments           = [];
     this._particles           = [];
@@ -594,7 +606,12 @@ export class Game {
             shotInterval: entry.shotInterval ?? 1,
             hp:           entry.hp           ?? 1,
             size:         entry.size         ?? undefined,
-            coinCount:    entry.coinCount     ?? undefined,
+            minCoins:     entry.minCoins     ?? 0,
+            maxCoins:     entry.maxCoins     ?? 0,
+            minPlatinum:  entry.minPlatinum  ?? 0,
+            maxPlatinum:  entry.maxPlatinum  ?? 0,
+            minDilithium: entry.minDilithium ?? 0,
+            maxDilithium: entry.maxDilithium ?? 0,
           });
         }
       } else {
@@ -621,7 +638,7 @@ export class Game {
         this.asteroids.push(new Asteroid(asteroid.pos.x, asteroid.pos.y, asteroid.childType));
       }
     } else {
-      this._spawnCoins(asteroid.pos);
+      this._spawnResources(asteroid.pos, asteroid);
     }
   }
 
@@ -652,6 +669,60 @@ export class Game {
         maxAge: COIN.sparkMinAge + Math.random() * (COIN.sparkMaxAge - COIN.sparkMinAge),
         radius: 1 + Math.random() * 1.5,
         color:  COIN.color,
+      });
+    }
+  }
+
+  _spawnResources(pos, cfg) {
+    const coins = (cfg.minCoins ?? 0) + Math.floor(Math.random() * ((cfg.maxCoins ?? 0) - (cfg.minCoins ?? 0) + 1));
+    if (coins > 0) this._spawnCoins(pos, coins);
+    const plat = (cfg.minPlatinum ?? 0) + Math.floor(Math.random() * ((cfg.maxPlatinum ?? 0) - (cfg.minPlatinum ?? 0) + 1));
+    if (plat > 0) this._spawnPlatinum(pos, plat);
+    const dil = (cfg.minDilithium ?? 0) + Math.floor(Math.random() * ((cfg.maxDilithium ?? 0) - (cfg.minDilithium ?? 0) + 1));
+    if (dil > 0) this._spawnDilithium(pos, dil);
+  }
+
+  _spawnPlatinum(pos, count) {
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = PLATINUM.minSpeed + Math.random() * (PLATINUM.maxSpeed - PLATINUM.minSpeed);
+      this._platinum.push({
+        pos:      { x: pos.x, y: pos.y },
+        vel:      { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed },
+        rotAngle: Math.random() * Math.PI * 2,
+        rotVel:   PLATINUM.rotSpeed * (Math.random() < 0.5 ? 1 : -1),
+        age:      0,
+        radius:   PLATINUM.radius,
+      });
+    }
+  }
+
+  _spawnDilithium(pos, count) {
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = DILITHIUM.minSpeed + Math.random() * (DILITHIUM.maxSpeed - DILITHIUM.minSpeed);
+      this._dilithium.push({
+        pos:      { x: pos.x, y: pos.y },
+        vel:      { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed },
+        rotAngle: Math.random() * Math.PI * 2,
+        rotVel:   DILITHIUM.rotSpeed * (Math.random() < 0.5 ? 1 : -1),
+        age:      0,
+        radius:   DILITHIUM.radius,
+      });
+    }
+  }
+
+  _spawnPlatinumParticles(pos) {
+    for (let i = 0; i < PLATINUM.sparkCount; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = PLATINUM.sparkMinSpeed + Math.random() * (PLATINUM.sparkMaxSpeed - PLATINUM.sparkMinSpeed);
+      this._platinumParticles.push({
+        pos:    { x: pos.x, y: pos.y },
+        vel:    { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed },
+        age:    0,
+        maxAge: PLATINUM.sparkMinAge + Math.random() * (PLATINUM.sparkMaxAge - PLATINUM.sparkMinAge),
+        radius: 1 + Math.random() * 1.5,
+        color:  PLATINUM.color,
       });
     }
   }
@@ -1148,7 +1219,7 @@ export class Game {
           x = Math.random() * CANVAS.width;
           y = Math.random() * CANVAS.height;
         } while (Math.hypot(x - this.ship.pos.x, y - this.ship.pos.y) < ASTEROID.safeRadius);
-        this._enemies.push(new Enemy(x, y, { speed: p.speed, shotInterval: p.shotInterval, hp: p.hp, size: p.size, coinCount: p.coinCount }));
+        this._enemies.push(new Enemy(x, y, { speed: p.speed, shotInterval: p.shotInterval, hp: p.hp, size: p.size, minCoins: p.minCoins, maxCoins: p.maxCoins, minPlatinum: p.minPlatinum, maxPlatinum: p.maxPlatinum, minDilithium: p.minDilithium, maxDilithium: p.maxDilithium }));
       }
     }
 
@@ -1214,7 +1285,7 @@ export class Game {
     const agedOut = this.asteroids.filter(a => a.maxAge !== null && a.age >= a.maxAge);
     for (const a of agedOut) {
       this.asteroids = this.asteroids.filter(x => x !== a);
-      if (a.deathDropsCoin) this._spawnCoins(a.pos, 1);
+      this._spawnResources(a.pos, a);
     }
 
     // Player bullets vs enemies.
@@ -1236,7 +1307,7 @@ export class Game {
     // Remove killed enemies and drop coins.
     this._enemies = this._enemies.filter(e => {
       if (e.hp <= 0) {
-        this._spawnCoins(e.pos, e.coinCount);
+        this._spawnResources(e.pos, e);
         playBang('small');
         return false;
       }
@@ -1252,7 +1323,26 @@ export class Game {
       wrap(c.pos, this.bounds.width, this.bounds.height);
     }
 
-    // Bullets vs coins (runs before bullet filter so dead bullets are skipped).
+    // Platinum: move, spin, wrap, age.
+    for (const p of this._platinum) {
+      p.pos.x    += p.vel.x * dt;
+      p.pos.y    += p.vel.y * dt;
+      p.rotAngle += p.rotVel * dt;
+      p.age      += dt;
+      wrap(p.pos, this.bounds.width, this.bounds.height);
+    }
+
+    // Dilithium: move, spin, wrap, age.
+    for (const d of this._dilithium) {
+      d.pos.x    += d.vel.x * dt;
+      d.pos.y    += d.vel.y * dt;
+      d.rotAngle += d.rotVel * dt;
+      d.age      += dt;
+      wrap(d.pos, this.bounds.width, this.bounds.height);
+    }
+
+    // Bullets vs coins and platinum (before bullet filter so dead bullets are skipped).
+    // Dilithium is indestructible — bullets pass through it.
     const deadCoins = new Set();
     for (const b of this.bullets) {
       if (b.dead) continue;
@@ -1261,6 +1351,20 @@ export class Game {
           b.dead = true;
           deadCoins.add(c);
           this._spawnCoinParticles(c.pos);
+          playCoinDestroy();
+          break;
+        }
+      }
+    }
+
+    const deadPlatinum = new Set();
+    for (const b of this.bullets) {
+      if (b.dead) continue;
+      for (const p of this._platinum) {
+        if (!deadPlatinum.has(p) && circlesOverlap(b, p, this.bounds)) {
+          b.dead = true;
+          deadPlatinum.add(p);
+          this._spawnPlatinumParticles(p.pos);
           playCoinDestroy();
           break;
         }
@@ -1279,6 +1383,28 @@ export class Game {
       return true;
     });
 
+    // Expire, collect, and remove bullet-hit platinum.
+    this._platinum = this._platinum.filter((p) => {
+      if (deadPlatinum.has(p) || p.age >= PLATINUM.maxAge) return false;
+      if (!this.ship.dead && circlesOverlap(this.ship, p, this.bounds)) {
+        this._score += PLATINUM.value;
+        playCoinCollect();
+        return false;
+      }
+      return true;
+    });
+
+    // Expire and collect dilithium (indestructible by bullets).
+    this._dilithium = this._dilithium.filter((d) => {
+      if (d.age >= DILITHIUM.maxAge) return false;
+      if (!this.ship.dead && circlesOverlap(this.ship, d, this.bounds)) {
+        this._score += DILITHIUM.value;
+        playCoinCollect();
+        return false;
+      }
+      return true;
+    });
+
     // Coin particles: move and expire.
     for (const p of this._coinParticles) {
       p.pos.x += p.vel.x * dt;
@@ -1286,6 +1412,14 @@ export class Game {
       p.age   += dt;
     }
     this._coinParticles = this._coinParticles.filter((p) => p.age < p.maxAge);
+
+    // Platinum particles: move and expire.
+    for (const p of this._platinumParticles) {
+      p.pos.x += p.vel.x * dt;
+      p.pos.y += p.vel.y * dt;
+      p.age   += dt;
+    }
+    this._platinumParticles = this._platinumParticles.filter((p) => p.age < p.maxAge);
 
     // Hit spark particles: move and expire.
     for (const p of this._hitParticles) {
@@ -1461,6 +1595,69 @@ export class Game {
       ctx.beginPath();
       ctx.arc(p.pos.x, p.pos.y, p.radius, 0, Math.PI * 2);
       ctx.fill();
+    }
+
+    // Platinum: silver spinning coin.
+    for (const p of this._platinum) {
+      let alpha = 1;
+      if (p.age >= PLATINUM.pulseFast) {
+        alpha = 0.5 + 0.5 * Math.sin(p.age * PLATINUM.pulseFastFreq);
+      } else if (p.age >= PLATINUM.pulseStart) {
+        alpha = 0.5 + 0.5 * Math.sin(p.age * PLATINUM.pulseSlowFreq);
+      }
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.translate(p.pos.x, p.pos.y);
+      ctx.scale(Math.abs(Math.cos(p.rotAngle)), 1);
+      ctx.fillStyle = PLATINUM.color;
+      ctx.beginPath();
+      ctx.arc(0, 0, PLATINUM.radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = PLATINUM.shine;
+      ctx.beginPath();
+      ctx.arc(0, 0, PLATINUM.radius * 0.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    for (const p of this._platinumParticles) {
+      ctx.globalAlpha = (1 - p.age / p.maxAge) ** 1.5;
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.pos.x, p.pos.y, p.radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Dilithium: cyan diamond crystal.
+    for (const d of this._dilithium) {
+      let alpha = 1;
+      if (d.age >= DILITHIUM.pulseFast) {
+        alpha = 0.5 + 0.5 * Math.sin(d.age * DILITHIUM.pulseFastFreq);
+      } else if (d.age >= DILITHIUM.pulseStart) {
+        alpha = 0.5 + 0.5 * Math.sin(d.age * DILITHIUM.pulseSlowFreq);
+      }
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.translate(d.pos.x, d.pos.y);
+      ctx.rotate(d.rotAngle);
+      const r = DILITHIUM.radius;
+      ctx.fillStyle = DILITHIUM.color;
+      ctx.beginPath();
+      ctx.moveTo(0, -r);
+      ctx.lineTo(r * 0.6, 0);
+      ctx.lineTo(0, r);
+      ctx.lineTo(-r * 0.6, 0);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = DILITHIUM.shine;
+      ctx.beginPath();
+      ctx.moveTo(0, -r * 0.5);
+      ctx.lineTo(r * 0.3, 0);
+      ctx.lineTo(0, r * 0.5);
+      ctx.lineTo(-r * 0.3, 0);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
     }
 
     for (const p of this._hitParticles) {

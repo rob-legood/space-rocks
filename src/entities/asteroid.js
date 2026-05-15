@@ -44,7 +44,12 @@ export class Asteroid {
     this.dying = false;
     this.dyingTimer = 0;
     this.maxAge = cfg.maxAge ?? null;
-    this.deathDropsCoin = cfg.deathDropsCoin ?? false;
+    this.minCoins     = cfg.minCoins     ?? 0;
+    this.maxCoins     = cfg.maxCoins     ?? 0;
+    this.minPlatinum  = cfg.minPlatinum  ?? 0;
+    this.maxPlatinum  = cfg.maxPlatinum  ?? 0;
+    this.minDilithium = cfg.minDilithium ?? 0;
+    this.maxDilithium = cfg.maxDilithium ?? 0;
     this.age = 0;
   }
 

@@ -2,12 +2,18 @@ import { ENEMY } from '../config.js';
 import { drawAtWrappedPositions, wrap } from '../utils/canvas.js';
 
 export class Enemy {
-  constructor(x, y, { speed = 60, shotInterval = 1, hp = 1, size = ENEMY.radius, coinCount = ENEMY.coinCount } = {}) {
+  constructor(x, y, { speed = 60, shotInterval = 1, hp = 1, size = ENEMY.radius,
+    minCoins = 0, maxCoins = 0,
+    minPlatinum = 0, maxPlatinum = 0,
+    minDilithium = 0, maxDilithium = 0,
+  } = {}) {
     this.pos = { x, y };
     const angle = Math.random() * Math.PI * 2;
     this.vel = { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed };
     this.radius = size;
-    this.coinCount = coinCount;
+    this.minCoins = minCoins; this.maxCoins = maxCoins;
+    this.minPlatinum = minPlatinum; this.maxPlatinum = maxPlatinum;
+    this.minDilithium = minDilithium; this.maxDilithium = maxDilithium;
     this.hp = hp;
     this.hitFlash = 0;
     // Stagger first shot so enemies spawning simultaneously don't all fire at once.

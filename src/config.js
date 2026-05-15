@@ -79,6 +79,33 @@ export const COIN = {
   shine:         '#7a4d00', // darker inner circle
 };
 
+export const PLATINUM = {
+  radius:        6,
+  minSpeed:      30,    maxSpeed:      90,
+  rotSpeed:      4.5,
+  maxAge:        15,
+  pulseStart:    10,    pulseFast:     13,
+  pulseSlowFreq: 10,    pulseFastFreq: 26,
+  sparkCount:    8,
+  sparkMinSpeed: 40,    sparkMaxSpeed: 120,
+  sparkMinAge:   0.25,  sparkMaxAge:   0.55,
+  color:  '#e8e8e8',   // silver face
+  shine:  '#909090',   // darker inner
+  value:  5,
+};
+
+export const DILITHIUM = {
+  radius:        8,
+  minSpeed:      20,    maxSpeed:      60,
+  rotSpeed:      1.8,
+  maxAge:        20,
+  pulseStart:    12,    pulseFast:     17,
+  pulseSlowFreq: 6,     pulseFastFreq: 16,
+  color:  '#00ffee',   // cyan crystal face
+  shine:  '#007060',   // darker teal inner
+  value:  50,
+};
+
 export const STARS = {
   count:     80,
   minRadius: 0.5,   // px — smallest pinprick
@@ -94,12 +121,12 @@ export const INVULN = {
 
 export const ASTEROID = {
   sizes: {
-    large:     { radius: 50, speedMin: 30,  speedMax: 60,  hp: 3, childType: 'medium', childCount: 2 },
-    medium:    { radius: 25, speedMin: 50,  speedMax: 90,  hp: 2, childType: 'small',  childCount: 2 },
-    small:     { radius: 12, speedMin: 70,  speedMax: 130, hp: 1, childType: null,     childCount: 0 },
-    fragile:   { radius: 38, speedMin: 45,  speedMax: 85,  hp: 1, childType: 'small',  childCount: 10, color: '#c8a0f0', bangSize: 'large' },
-    dangerous: { radius: 14, speedMin: 70,  speedMax: 130, hp: 1, childType: 'tiny',   childCount: 12,  color: '#f33',    bangSize: 'large', optional: true, dyingDuration: 2.0 },
-    tiny:      { radius: 5,  speedMin: 200, speedMax: 340, hp: 1, childType: null,     childCount: 0,  maxAge: 5.0, deathDropsCoin: true },
+    large:     { radius: 50, speedMin: 30,  speedMax: 60,  hp: 3, childType: 'medium', childCount: 2,  minCoins: 0, maxCoins: 0, minPlatinum: 0, maxPlatinum: 0, minDilithium: 0, maxDilithium: 0 },
+    medium:    { radius: 25, speedMin: 50,  speedMax: 90,  hp: 2, childType: 'small',  childCount: 2,  minCoins: 0, maxCoins: 0, minPlatinum: 0, maxPlatinum: 0, minDilithium: 0, maxDilithium: 0 },
+    small:     { radius: 12, speedMin: 70,  speedMax: 130, hp: 1, childType: null,     childCount: 0,  minCoins: 1, maxCoins: 3, minPlatinum: 0, maxPlatinum: 0, minDilithium: 0, maxDilithium: 0 },
+    fragile:   { radius: 38, speedMin: 45,  speedMax: 85,  hp: 1, childType: 'small',  childCount: 10, minCoins: 0, maxCoins: 0, minPlatinum: 0, maxPlatinum: 0, minDilithium: 0, maxDilithium: 0, color: '#c8a0f0', bangSize: 'large' },
+    dangerous: { radius: 14, speedMin: 70,  speedMax: 130, hp: 1, childType: 'tiny',   childCount: 12, minCoins: 0, maxCoins: 0, minPlatinum: 0, maxPlatinum: 0, minDilithium: 0, maxDilithium: 0, color: '#f33',    bangSize: 'large', optional: true, dyingDuration: 2.0 },
+    tiny:      { radius: 5,  speedMin: 200, speedMax: 340, hp: 1, childType: null,     childCount: 0,  minCoins: 1, maxCoins: 1, minPlatinum: 0, maxPlatinum: 0, minDilithium: 0, maxDilithium: 0, maxAge: 5.0 },
   },
   minVertices:        8,
   maxVertices:        12,
@@ -144,7 +171,6 @@ export const ENEMY = {
   radius:           12,     // collision and visual radius px
   color:            '#f44', // stroke colour
   hitFlashDuration: 0.12,   // seconds the red-hit tint lasts
-  coinCount:        5,      // coins spawned on death
   bullet: {
     speed:       280,  // px/s
     maxDistance: 520,  // px before expiry
