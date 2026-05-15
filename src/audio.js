@@ -126,6 +126,12 @@ export function playCoinDestroy() {
   sweep('square', 400, 200, 0.06, 0.15);
 }
 
+export function playCargoDestroy() {
+  // Woody thunk: mid-frequency noise burst + short descending thud.
+  noiseBurst(220, 3.5, 0.28, 0.85);
+  sweep('triangle', 280, 90, 0.22, 0.45);
+}
+
 // ── Menu sounds ───────────────────────────────────────────────────────────────
 
 export function playMenuNav() {

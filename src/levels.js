@@ -33,7 +33,7 @@
 //   'mothership' — boss-class, periodically spawns drones
 //   'doppel'     — special enemy: AI copy of the player ship
 //
-// SUGGESTED NEW CURRENCY TIERS (just hinted in story for now):
+// SUGGESTED NEW CURRENCY TIERS (These have been implemented):
 //   §  — Space Bucks (existing)
 //   ₧  — Platinum (rare drop from medium/+ asteroids)
 //   ♦  — Dilithium (rare drop from bosses and deep-space rocks)
@@ -625,7 +625,7 @@ export const LEVEL_ZERO = {
   spawn: [
     { type: 'large', count: 1, maxCoins: 10, maxCoins: 10, minPlatinum: 0, maxPlatinum: 0, minDilithium: 0, maxDilithium: 0 },
     { type: 'enemy', count: 3, speed: 60, shotInterval: 1.2, minSpawnTime: 8, maxSpawnTime: 14, hp: 1, maxCoins: 0, maxCoins: 0, minPlatinum: 0, maxPlatinum: 0, minDilithium: 2, maxDilithium: 5 },
-
+    { type: 'cargo', count: 3, minCoins: 3, maxCoins: 8, minPlatinum: 0, maxPlatinum: 1, minDilithium: 0, maxDilithium: 0 },
   ],
   storytext: null,
 };

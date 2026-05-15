@@ -106,6 +106,28 @@ export const DILITHIUM = {
   value:  50,
 };
 
+export const CARGO = {
+  radius:           3,    // collision + visual half-size of the crate square
+  speedMin:         15,    // px/s drift
+  speedMax:         40,
+  rotationMin:      0.1,   // rad/s
+  rotationMax:      0.4,
+  hitFlashDuration: 0.12,  // seconds the flash tint lasts
+  splinterCount:    14,
+  splinterMinSpeed: 50,    // px/s
+  splinterMaxSpeed: 140,
+  splinterMinAge:   0.2,   // seconds
+  splinterMaxAge:   0.6,
+  color:  '#c8a060',       // warm wood tone
+  splinterColors: ['#8b5a2b', '#c68642', '#d4a96a', '#6b3a1f', '#a07040'],
+  minCoins:     2,
+  maxCoins:     6,
+  minPlatinum:  0,
+  maxPlatinum:  0,
+  minDilithium: 0,
+  maxDilithium: 0,
+};
+
 export const STARS = {
   count:     80,
   minRadius: 0.5,   // px — smallest pinprick

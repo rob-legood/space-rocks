@@ -1,10 +1,11 @@
-import { CANVAS, ASTEROID, INVULN, HUD, COIN, PLATINUM, DILITHIUM, FRAGMENT, PARTICLE, WARP, WORMHOLE, STATION, SHIP, HIT_SPARK, ENEMY } from './config.js';
+import { CANVAS, ASTEROID, INVULN, HUD, COIN, PLATINUM, DILITHIUM, FRAGMENT, PARTICLE, WARP, WORMHOLE, STATION, SHIP, HIT_SPARK, ENEMY, CARGO } from './config.js';
 import UPGRADES from './upgrades.json';
 import { getLevel, LEVEL_ZERO } from './levels.js';
 import { Ship } from './entities/ship.js';
 import { Bullet } from './entities/bullet.js';
 import { Asteroid } from './entities/asteroid.js';
 import { Enemy } from './entities/enemy.js';
+import { Cargo } from './entities/cargo.js';
 import { Wormhole } from './entities/wormhole.js';
 import { Starfield } from './entities/starfield.js';
 import { Input } from './input.js';
@@ -12,7 +13,7 @@ import { circlesOverlap } from './utils/collision.js';
 import { drawAtWrappedPositions, wrap } from './utils/canvas.js';
 import {
   playFire, playBang, playExplosion, playHit,
-  playCoinCollect, playCoinDestroy,
+  playCoinCollect, playCoinDestroy, playCargoDestroy,
   playWarpOut, playWarpIn,
   playMenuNav, playMenuSelect,
   startThrust, stopThrust,
@@ -41,6 +42,8 @@ export class Game {
     this._enemies             = [];
     this._enemyBullets        = [];
     this._pendingEnemySpawns  = [];
+    this._cargos              = [];
+    this._splinterParticles   = [];
     this._score        = 0;
     this._lives       = HUD.lives;
     this._warpPhase   = 'none'; // 'none' | 'out' | 'in'
@@ -212,6 +215,8 @@ export class Game {
     this._enemies             = [];
     this._enemyBullets        = [];
     this._pendingEnemySpawns  = [];
+    this._cargos              = [];
+    this._splinterParticles   = [];
     this._score        = 0;
     this._lives       = HUD.lives;
     this._warpPhase     = 'none';
@@ -371,6 +376,7 @@ export class Game {
     this._particles           = [];
     this._enemies             = [];
     this._enemyBullets        = [];
+    this._splinterParticles   = [];
     this._warpPhase           = 'none';
     this._warpTimer           = 0;
     this._exitWormhole        = null;
@@ -592,6 +598,7 @@ export class Game {
   _spawnInitialAsteroids(level) {
     const asteroids = [];
     this._pendingEnemySpawns = [];
+    this._cargos = [];
     const shipX = CANVAS.width / 2;
     const shipY = CANVAS.height / 2;
     const lvl = getLevel(level);
@@ -613,6 +620,15 @@ export class Game {
             minDilithium: entry.minDilithium ?? 0,
             maxDilithium: entry.maxDilithium ?? 0,
           });
+        }
+      } else if (entry.type === 'cargo') {
+        for (let i = 0; i < (entry.count ?? 1); i++) {
+          let x, y;
+          do {
+            x = Math.random() * CANVAS.width;
+            y = Math.random() * CANVAS.height;
+          } while (Math.hypot(x - shipX, y - shipY) < ASTEROID.safeRadius);
+          this._cargos.push(new Cargo(x, y, entry));
         }
       } else {
         const { type, count } = entry;
@@ -738,6 +754,21 @@ export class Game {
         maxAge: HIT_SPARK.minAge + Math.random() * (HIT_SPARK.maxAge - HIT_SPARK.minAge),
         radius: HIT_SPARK.minRadius + Math.random() * (HIT_SPARK.maxRadius - HIT_SPARK.minRadius),
         color:  HIT_SPARK.color,
+      });
+    }
+  }
+
+  _spawnSplinterParticles(pos) {
+    for (let i = 0; i < CARGO.splinterCount; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = CARGO.splinterMinSpeed + Math.random() * (CARGO.splinterMaxSpeed - CARGO.splinterMinSpeed);
+      this._splinterParticles.push({
+        pos:    { x: pos.x, y: pos.y },
+        vel:    { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed },
+        age:    0,
+        maxAge: CARGO.splinterMinAge + Math.random() * (CARGO.splinterMaxAge - CARGO.splinterMinAge),
+        radius: 1 + Math.random() * 2,
+        color:  CARGO.splinterColors[Math.floor(Math.random() * CARGO.splinterColors.length)],
       });
     }
   }
@@ -1204,6 +1235,7 @@ export class Game {
 
     for (const b of this.bullets) b.update(dt, this.bounds);
     for (const a of this.asteroids) a.update(dt, this.bounds);
+    for (const c of this._cargos) c.update(dt, this.bounds);
 
     // Tick pending enemy spawns (only while level is still active).
     if (this._state === 'playing') {
@@ -1370,6 +1402,23 @@ export class Game {
         }
       }
     }
+    // Bullets vs cargo: destroys the crate and drops loot; bullet is spent.
+    const deadCargos = new Set();
+    for (const b of this.bullets) {
+      if (b.dead) continue;
+      for (const cargo of this._cargos) {
+        if (!deadCargos.has(cargo) && circlesOverlap(b, cargo, this.bounds)) {
+          b.dead = true;
+          deadCargos.add(cargo);
+          this._spawnSplinterParticles(cargo.pos);
+          this._spawnResources(cargo.pos, cargo);
+          playCargoDestroy();
+          break;
+        }
+      }
+    }
+    this._cargos = this._cargos.filter(c => !deadCargos.has(c));
+
     this.bullets = this.bullets.filter((b) => !b.dead);
 
     // Expire, collect, and remove bullet-hit coins.
@@ -1421,6 +1470,14 @@ export class Game {
     }
     this._platinumParticles = this._platinumParticles.filter((p) => p.age < p.maxAge);
 
+    // Splinter particles: move and expire.
+    for (const p of this._splinterParticles) {
+      p.pos.x += p.vel.x * dt;
+      p.pos.y += p.vel.y * dt;
+      p.age   += dt;
+    }
+    this._splinterParticles = this._splinterParticles.filter((p) => p.age < p.maxAge);
+
     // Hit spark particles: move and expire.
     for (const p of this._hitParticles) {
       p.pos.x += p.vel.x * dt;
@@ -1457,6 +1514,19 @@ export class Game {
           }
         }
       }
+    }
+
+    // Ship vs cargo: crate destroyed, no loot, ship unharmed.
+    if (!this.ship.dead) {
+      const hitCargos = new Set();
+      for (const cargo of this._cargos) {
+        if (circlesOverlap(this.ship, cargo, this.bounds)) {
+          hitCargos.add(cargo);
+          this._spawnSplinterParticles(cargo.pos);
+          playCargoDestroy();
+        }
+      }
+      if (hitCargos.size > 0) this._cargos = this._cargos.filter(c => !hitCargos.has(c));
     }
 
     // Level complete: all required (non-optional) asteroids cleared during active play.
@@ -1554,6 +1624,7 @@ export class Game {
     }
 
     for (const a of this.asteroids) a.draw(ctx, this.bounds);
+    for (const c of this._cargos) c.draw(ctx, this.bounds);
     for (const e of this._enemies) e.draw(ctx, this.bounds);
 
     ctx.fillStyle = CANVAS.stroke;
@@ -1661,6 +1732,14 @@ export class Game {
     }
 
     for (const p of this._hitParticles) {
+      ctx.globalAlpha = (1 - p.age / p.maxAge) ** 1.5;
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.pos.x, p.pos.y, p.radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    for (const p of this._splinterParticles) {
       ctx.globalAlpha = (1 - p.age / p.maxAge) ** 1.5;
       ctx.fillStyle = p.color;
       ctx.beginPath();
