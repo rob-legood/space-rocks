@@ -87,7 +87,7 @@ const TRACKS = {
   // Victory fanfare: A-major rising triad arpeggio, driving bass, triumphant peak.
   // 16 steps × 0.21 s ≈ 3.36 s loop (143 BPM, eighth notes).
   victory: {
-    stepTime: 0.21,
+    stepTime: 0.16,
     steps: [
       [[A2, 0.18, 0.30, 'square'], [A3, 0.16, 0.12, 'triangle']],  // downbeat — root
       [],
