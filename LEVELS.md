@@ -51,7 +51,7 @@ Enemies do not count toward level completion (all non-optional asteroid types mu
 | `minDilithium`   | number | 0       | Min dilithium dropped when shot             |
 | `maxDilithium`   | number | 0       | Max dilithium dropped when shot             |
 
-**Mine entries** — slowly drifting hazards placed at random safe positions at level start. When shot or collided with, the mine is destroyed and an expanding shockwave ring erupts outward. The shockwave kills the player when the ring sweeps over the ship. Mines do not drop loot and do not block level completion.
+**Mine entries** — slowly drifting hazards placed at random safe positions at level start. When shot or collided with, the mine is destroyed and an expanding shockwave ring erupts outward. The shockwave kills the player when the ring sweeps over the ship. Mines do not drop loot. All mines must be destroyed for the exit wormhole to appear.
 
 | Mine option         | Type   | Default   | Description                                   |
 |---------------------|--------|-----------|-----------------------------------------------|

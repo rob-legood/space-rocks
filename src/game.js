@@ -1,4 +1,4 @@
-import { CANVAS, ASTEROID, INVULN, HUD, COIN, PLATINUM, DILITHIUM, FRAGMENT, PARTICLE, WARP, WORMHOLE, STATION, SHIP, HIT_SPARK, ENEMY, CARGO, MINE } from './config.js';
+import { CANVAS, ASTEROID, INVULN, HUD, COIN, PLATINUM, DILITHIUM, FRAGMENT, PARTICLE, WARP, WORMHOLE, STATION, SHIP, HIT_SPARK, ENEMY, CARGO, MINE, COMET } from './config.js';
 import UPGRADES from './upgrades.json';
 import { getLevel, LEVEL_ZERO } from './levels.js';
 import { Ship } from './entities/ship.js';
@@ -7,6 +7,7 @@ import { Asteroid } from './entities/asteroid.js';
 import { Enemy } from './entities/enemy.js';
 import { Cargo } from './entities/cargo.js';
 import { Mine } from './entities/mine.js';
+import { Comet } from './entities/comet.js';
 import { Wormhole } from './entities/wormhole.js';
 import { Starfield } from './entities/starfield.js';
 import { Input } from './input.js';
@@ -48,6 +49,8 @@ export class Game {
     this._splinterParticles   = [];
     this._mines               = [];
     this._shockwaves          = [];
+    this._comets              = [];
+    this._cometTrail          = [];
     this._score        = 0;
     this._lives       = HUD.lives;
     this._warpPhase   = 'none'; // 'none' | 'out' | 'in'
@@ -188,6 +191,8 @@ export class Game {
       this._hitParticles         = [];
       this._mines                = [];
       this._shockwaves           = [];
+      this._comets               = [];
+      this._cometTrail           = [];
       this.ship.dead = true;
       this._state = 'gameover';
     } else {
@@ -227,6 +232,8 @@ export class Game {
     this._splinterParticles   = [];
     this._mines               = [];
     this._shockwaves          = [];
+    this._comets              = [];
+    this._cometTrail          = [];
     this._score        = 0;
     this._lives       = HUD.lives;
     this._warpPhase     = 'none';
@@ -391,6 +398,8 @@ export class Game {
     this._splinterParticles   = [];
     this._mines               = [];
     this._shockwaves          = [];
+    this._comets              = [];
+    this._cometTrail          = [];
     this._warpPhase           = 'none';
     this._warpTimer           = 0;
     this._exitWormhole        = null;
@@ -659,6 +668,15 @@ export class Game {
             shockwaveSpeed:  entry.shockwaveSpeed,
           }));
         }
+      } else if (entry.type === 'comet') {
+        for (let i = 0; i < (entry.count ?? 1); i++) {
+          let x, y;
+          do {
+            x = Math.random() * CANVAS.width;
+            y = Math.random() * CANVAS.height;
+          } while (Math.hypot(x - shipX, y - shipY) < ASTEROID.safeRadius);
+          this._comets.push(new Comet(x, y));
+        }
       } else {
         const { type, count } = entry;
         let spawned = 0;
@@ -798,6 +816,27 @@ export class Game {
         maxAge: CARGO.splinterMinAge + Math.random() * (CARGO.splinterMaxAge - CARGO.splinterMinAge),
         radius: 1 + Math.random() * 2,
         color:  CARGO.splinterColors[Math.floor(Math.random() * CARGO.splinterColors.length)],
+      });
+    }
+  }
+
+  _spawnCometTrail(comet, dt) {
+    const count = Math.floor(COMET.trailRate * dt + Math.random());
+    for (let i = 0; i < count; i++) {
+      const perp = (Math.random() * 2 - 1) * COMET.trailSpread;
+      this._cometTrail.push({
+        pos: {
+          x: comet.pos.x + (-comet.dir.y) * perp,
+          y: comet.pos.y + ( comet.dir.x) * perp,
+        },
+        vel: {
+          x: -comet.dir.x * COMET.trailSpeed + (Math.random() - 0.5) * 10,
+          y: -comet.dir.y * COMET.trailSpeed + (Math.random() - 0.5) * 10,
+        },
+        age:    0,
+        maxAge: COMET.trailMinAge + Math.random() * (COMET.trailMaxAge - COMET.trailMinAge),
+        radius: COMET.trailRadius,
+        color:  COMET.trailColors[Math.floor(Math.random() * COMET.trailColors.length)],
       });
     }
   }
@@ -1283,6 +1322,17 @@ export class Game {
     for (const c of this._cargos) c.update(dt, this.bounds);
     for (const m of this._mines) m.update(dt, this.bounds);
 
+    for (const c of this._comets) {
+      c.update(dt, this.bounds);
+      this._spawnCometTrail(c, dt);
+    }
+    for (const p of this._cometTrail) {
+      p.pos.x += p.vel.x * dt;
+      p.pos.y += p.vel.y * dt;
+      p.age   += dt;
+    }
+    this._cometTrail = this._cometTrail.filter(p => p.age < p.maxAge);
+
     // Expand shockwaves; mark done when they reach max radius.
     for (const sw of this._shockwaves) {
       sw.radius += sw.expandSpeed * dt;
@@ -1490,6 +1540,21 @@ export class Game {
     for (const mine of triggeredMines) this._triggerMine(mine);
     this._mines = this._mines.filter(m => !triggeredMines.has(m));
 
+    // Bullets vs comets: destroy comet, no loot, trail persists.
+    const deadComets = new Set();
+    for (const b of this.bullets) {
+      if (b.dead) continue;
+      for (const c of this._comets) {
+        if (!deadComets.has(c) && circlesOverlap(b, c, this.bounds)) {
+          b.dead = true;
+          deadComets.add(c);
+          playBang('small');
+          break;
+        }
+      }
+    }
+    this._comets = this._comets.filter(c => !deadComets.has(c));
+
     this.bullets = this.bullets.filter((b) => !b.dead);
 
     // Expire, collect, and remove bullet-hit coins.
@@ -1610,6 +1675,24 @@ export class Game {
       this._mines = this._mines.filter(m => !hitMines.has(m));
     }
 
+    // Ship vs comets and comet trail: both lethal.
+    if (!this.ship.dead && this._invulnTimer <= 0) {
+      for (const c of this._comets) {
+        if (circlesOverlap(this.ship, c, this.bounds)) {
+          this._killShip();
+          break;
+        }
+      }
+    }
+    if (!this.ship.dead && this._invulnTimer <= 0) {
+      for (const p of this._cometTrail) {
+        if (circlesOverlap(this.ship, p, this.bounds)) {
+          this._killShip();
+          break;
+        }
+      }
+    }
+
     // Ship vs shockwaves: killed when the ring front sweeps over the ship.
     if (!this.ship.dead && this._invulnTimer <= 0) {
       for (const sw of this._shockwaves) {
@@ -1627,11 +1710,13 @@ export class Game {
 
     this._shockwaves = this._shockwaves.filter(sw => !sw.dead);
 
-    // Level complete: all required asteroids cleared and all enemies dead or pending.
+    // Level complete: all required asteroids, enemies, mines, and comets cleared.
     if (this._state === 'playing' &&
         this.asteroids.filter(a => !a.optional).length === 0 &&
         this._enemies.length === 0 &&
-        this._pendingEnemySpawns.length === 0) {
+        this._pendingEnemySpawns.length === 0 &&
+        this._mines.length === 0 &&
+        this._comets.length === 0) {
       this._state = 'levelcomplete';
       this._exitWormhole = this._spawnExitWormhole();
       playMusic('victory');
@@ -1725,10 +1810,21 @@ export class Game {
       ctx.restore();
     }
 
+    // Comet trail particles drawn before entities so the head renders on top.
+    for (const p of this._cometTrail) {
+      ctx.globalAlpha = (1 - p.age / p.maxAge) ** 0.8;
+      ctx.fillStyle   = p.color;
+      ctx.beginPath();
+      ctx.arc(p.pos.x, p.pos.y, p.radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
     for (const a of this.asteroids) a.draw(ctx, this.bounds);
     for (const c of this._cargos) c.draw(ctx, this.bounds);
     for (const e of this._enemies) e.draw(ctx, this.bounds);
     for (const m of this._mines) m.draw(ctx, this.bounds);
+    for (const c of this._comets) c.draw(ctx);
 
     ctx.fillStyle = CANVAS.stroke;
     for (const b of this.bullets) b.draw(ctx);

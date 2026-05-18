@@ -19,8 +19,8 @@
 // They are referenced in `spawn` so you can ctrl-F and wire them up:
 //
 //   'cargo'      — drifting container, destroy for bonus coins - DONE!
-//   'mine'       — stationary, explodes on proximity (or shot)
-//   'comet'      — very fast rock with a particle trail
+//   'mine'       — stationary, explodes on proximity (or shot) - DONE! - DONE!
+//   'comet'      — very fast rock with a particle trail - DONE!
 //   'civilian'   — friendly ship; bonus if alive, penalty if dead
 //   'bomber'     — slow enemy with heavy, slow projectiles
 //   'stealth'    — enemy that cloaks between shots
@@ -628,6 +628,7 @@ export const LEVEL_ZERO = {
 //    { type: 'enemy', count: 1, speed: 60, shotInterval: 1.2, minSpawnTime: 8, maxSpawnTime: 14, hp: 1, maxCoins: 0, maxCoins: 0, minPlatinum: 0, maxPlatinum: 0, minDilithium: 2, maxDilithium: 5 },
 //    { type: 'cargo', count: 3, minCoins: 3, maxCoins: 8, minPlatinum: 0, maxPlatinum: 1, minDilithium: 0, maxDilithium: 0 },
     { type: 'mine', count: 3 },
+    { type: 'comet', count: 2 },
   ],
   storytext: null,
 };

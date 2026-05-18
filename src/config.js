@@ -128,6 +128,20 @@ export const CARGO = {
   maxDilithium: 0,
 };
 
+export const COMET = {
+  radius:       8,        // visual + collision radius px
+  speedMin:     320,      // px/s
+  speedMax:     420,      // px/s
+  headColor:    '#8df',   // cyan-blue glow halo colour
+  trailRate:    60,       // trail particles spawned per second
+  trailRadius:  4,        // px — collision radius of each trail particle
+  trailSpeed:   25,       // px/s — trail drifts backward at this speed
+  trailSpread:  5,        // px — perpendicular spread from comet centre
+  trailMinAge:  0.5,      // seconds a trail particle lives
+  trailMaxAge:  1.4,      // seconds
+  trailColors:  ['#cff', '#9cf', '#fff', '#ffc', '#ff8', '#f80'],
+};
+
 export const MINE = {
   radius:             5,    // visual + collision radius px
   speedMin:           3,     // px/s drift
