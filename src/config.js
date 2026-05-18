@@ -107,7 +107,7 @@ export const DILITHIUM = {
 };
 
 export const CARGO = {
-  radius:           3,    // collision + visual half-size of the crate square
+  radius:           4,    // collision + visual half-size of the crate square
   speedMin:         15,    // px/s drift
   speedMax:         40,
   rotationMin:      0.1,   // rad/s
@@ -126,6 +126,19 @@ export const CARGO = {
   maxPlatinum:  0,
   minDilithium: 0,
   maxDilithium: 0,
+};
+
+export const MINE = {
+  radius:             5,    // visual + collision radius px
+  speedMin:           3,     // px/s drift
+  speedMax:           10,    // px/s drift
+  spikeCount:         8,
+  spikeLength:        2,     // px
+  color:              '#f80',
+  shockwaveMaxRadius: 160,   // px — default max expansion radius
+  shockwaveSpeed:     220,   // px/s — default expansion rate
+  shockwaveKillBand:  12,    // px — ring half-width for kill detection
+  shockwaveColor:     '#f84',
 };
 
 export const STARS = {

@@ -1,4 +1,4 @@
-import { CANVAS, ASTEROID, INVULN, HUD, COIN, PLATINUM, DILITHIUM, FRAGMENT, PARTICLE, WARP, WORMHOLE, STATION, SHIP, HIT_SPARK, ENEMY, CARGO } from './config.js';
+import { CANVAS, ASTEROID, INVULN, HUD, COIN, PLATINUM, DILITHIUM, FRAGMENT, PARTICLE, WARP, WORMHOLE, STATION, SHIP, HIT_SPARK, ENEMY, CARGO, MINE } from './config.js';
 import UPGRADES from './upgrades.json';
 import { getLevel, LEVEL_ZERO } from './levels.js';
 import { Ship } from './entities/ship.js';
@@ -6,6 +6,7 @@ import { Bullet } from './entities/bullet.js';
 import { Asteroid } from './entities/asteroid.js';
 import { Enemy } from './entities/enemy.js';
 import { Cargo } from './entities/cargo.js';
+import { Mine } from './entities/mine.js';
 import { Wormhole } from './entities/wormhole.js';
 import { Starfield } from './entities/starfield.js';
 import { Input } from './input.js';
@@ -45,6 +46,8 @@ export class Game {
     this._pendingEnemySpawns  = [];
     this._cargos              = [];
     this._splinterParticles   = [];
+    this._mines               = [];
+    this._shockwaves          = [];
     this._score        = 0;
     this._lives       = HUD.lives;
     this._warpPhase   = 'none'; // 'none' | 'out' | 'in'
@@ -183,6 +186,8 @@ export class Game {
       this._platinumParticles    = [];
       this._dilithium            = [];
       this._hitParticles         = [];
+      this._mines                = [];
+      this._shockwaves           = [];
       this.ship.dead = true;
       this._state = 'gameover';
     } else {
@@ -220,6 +225,8 @@ export class Game {
     this._pendingEnemySpawns  = [];
     this._cargos              = [];
     this._splinterParticles   = [];
+    this._mines               = [];
+    this._shockwaves          = [];
     this._score        = 0;
     this._lives       = HUD.lives;
     this._warpPhase     = 'none';
@@ -382,6 +389,8 @@ export class Game {
     this._enemies             = [];
     this._enemyBullets        = [];
     this._splinterParticles   = [];
+    this._mines               = [];
+    this._shockwaves          = [];
     this._warpPhase           = 'none';
     this._warpTimer           = 0;
     this._exitWormhole        = null;
@@ -638,6 +647,18 @@ export class Game {
           } while (Math.hypot(x - shipX, y - shipY) < ASTEROID.safeRadius);
           this._cargos.push(new Cargo(x, y, entry));
         }
+      } else if (entry.type === 'mine') {
+        for (let i = 0; i < (entry.count ?? 1); i++) {
+          let x, y;
+          do {
+            x = Math.random() * CANVAS.width;
+            y = Math.random() * CANVAS.height;
+          } while (Math.hypot(x - shipX, y - shipY) < ASTEROID.safeRadius);
+          this._mines.push(new Mine(x, y, {
+            shockwaveRadius: entry.shockwaveRadius,
+            shockwaveSpeed:  entry.shockwaveSpeed,
+          }));
+        }
       } else {
         const { type, count } = entry;
         let spawned = 0;
@@ -779,6 +800,17 @@ export class Game {
         color:  CARGO.splinterColors[Math.floor(Math.random() * CARGO.splinterColors.length)],
       });
     }
+  }
+
+  _triggerMine(mine) {
+    this._shockwaves.push({
+      pos:         { x: mine.pos.x, y: mine.pos.y },
+      radius:      0,
+      maxRadius:   mine.shockwaveRadius,
+      expandSpeed: mine.shockwaveSpeed,
+      dead:        false,
+    });
+    playBang('large');
   }
 
   _updateStation(dt) {
@@ -1249,6 +1281,13 @@ export class Game {
     for (const b of this.bullets) b.update(dt, this.bounds);
     for (const a of this.asteroids) a.update(dt, this.bounds);
     for (const c of this._cargos) c.update(dt, this.bounds);
+    for (const m of this._mines) m.update(dt, this.bounds);
+
+    // Expand shockwaves; mark done when they reach max radius.
+    for (const sw of this._shockwaves) {
+      sw.radius += sw.expandSpeed * dt;
+      if (sw.radius >= sw.maxRadius) sw.dead = true;
+    }
 
     // Tick pending enemy spawns (only while level is still active).
     if (this._state === 'playing') {
@@ -1436,6 +1475,21 @@ export class Game {
     }
     this._cargos = this._cargos.filter(c => !deadCargos.has(c));
 
+    // Bullets vs mines: trigger shockwave, spent bullet.
+    const triggeredMines = new Set();
+    for (const b of this.bullets) {
+      if (b.dead) continue;
+      for (const mine of this._mines) {
+        if (!triggeredMines.has(mine) && circlesOverlap(b, mine, this.bounds)) {
+          b.dead = true;
+          triggeredMines.add(mine);
+          break;
+        }
+      }
+    }
+    for (const mine of triggeredMines) this._triggerMine(mine);
+    this._mines = this._mines.filter(m => !triggeredMines.has(m));
+
     this.bullets = this.bullets.filter((b) => !b.dead);
 
     // Expire, collect, and remove bullet-hit coins.
@@ -1546,6 +1600,33 @@ export class Game {
       if (hitCargos.size > 0) this._cargos = this._cargos.filter(c => !hitCargos.has(c));
     }
 
+    // Ship vs mines (only when not dead / invuln): trigger shockwave, ship killed by the wave.
+    if (!this.ship.dead && this._invulnTimer <= 0) {
+      const hitMines = new Set();
+      for (const mine of this._mines) {
+        if (circlesOverlap(this.ship, mine, this.bounds)) hitMines.add(mine);
+      }
+      for (const mine of hitMines) this._triggerMine(mine);
+      this._mines = this._mines.filter(m => !hitMines.has(m));
+    }
+
+    // Ship vs shockwaves: killed when the ring front sweeps over the ship.
+    if (!this.ship.dead && this._invulnTimer <= 0) {
+      for (const sw of this._shockwaves) {
+        let dx = Math.abs(sw.pos.x - this.ship.pos.x);
+        let dy = Math.abs(sw.pos.y - this.ship.pos.y);
+        if (dx > this.bounds.width  / 2) dx = this.bounds.width  - dx;
+        if (dy > this.bounds.height / 2) dy = this.bounds.height - dy;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (Math.abs(dist - sw.radius) <= MINE.shockwaveKillBand + this.ship.radius) {
+          this._killShip();
+          break;
+        }
+      }
+    }
+
+    this._shockwaves = this._shockwaves.filter(sw => !sw.dead);
+
     // Level complete: all required asteroids cleared and all enemies dead or pending.
     if (this._state === 'playing' &&
         this.asteroids.filter(a => !a.optional).length === 0 &&
@@ -1647,6 +1728,7 @@ export class Game {
     for (const a of this.asteroids) a.draw(ctx, this.bounds);
     for (const c of this._cargos) c.draw(ctx, this.bounds);
     for (const e of this._enemies) e.draw(ctx, this.bounds);
+    for (const m of this._mines) m.draw(ctx, this.bounds);
 
     ctx.fillStyle = CANVAS.stroke;
     for (const b of this.bullets) b.draw(ctx);
@@ -1768,6 +1850,28 @@ export class Game {
       ctx.fill();
     }
     ctx.globalAlpha = 1;
+
+    // Shockwaves: expanding ring with fading glow.
+    for (const sw of this._shockwaves) {
+      const t = sw.radius / sw.maxRadius;
+      const alpha = 1 - t;
+      drawAtWrappedPositions(sw.pos, sw.radius, this.bounds, (wx, wy) => {
+        ctx.save();
+        ctx.globalAlpha = alpha * 0.35;
+        ctx.strokeStyle = MINE.shockwaveColor;
+        ctx.lineWidth   = 10;
+        ctx.beginPath();
+        ctx.arc(wx, wy, sw.radius, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.globalAlpha = alpha * 0.85;
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth   = 2;
+        ctx.beginPath();
+        ctx.arc(wx, wy, sw.radius, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      });
+    }
 
     if (this._state === 'levelcomplete' && this._exitWormhole) {
       this._exitWormhole.draw(ctx, 1);

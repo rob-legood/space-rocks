@@ -624,9 +624,10 @@ export const LEVEL_ZERO = {
   title: 'Level 0: Dev Sandbox',
   spawn: [
     { type: 'large', count: 0, maxCoins: 10, maxCoins: 10, minPlatinum: 0, maxPlatinum: 0, minDilithium: 0, maxDilithium: 0 },
-    { type: 'small', count: 1, maxCoins: 1, maxCoins: 3, minPlatinum: 0, maxPlatinum: 0, minDilithium: 0, maxDilithium: 0 },
-    { type: 'enemy', count: 1, speed: 60, shotInterval: 1.2, minSpawnTime: 8, maxSpawnTime: 14, hp: 1, maxCoins: 0, maxCoins: 0, minPlatinum: 0, maxPlatinum: 0, minDilithium: 2, maxDilithium: 5 },
-    { type: 'cargo', count: 3, minCoins: 3, maxCoins: 8, minPlatinum: 0, maxPlatinum: 1, minDilithium: 0, maxDilithium: 0 },
+//    { type: 'small', count: 1, maxCoins: 1, maxCoins: 3, minPlatinum: 0, maxPlatinum: 0, minDilithium: 0, maxDilithium: 0 },
+//    { type: 'enemy', count: 1, speed: 60, shotInterval: 1.2, minSpawnTime: 8, maxSpawnTime: 14, hp: 1, maxCoins: 0, maxCoins: 0, minPlatinum: 0, maxPlatinum: 0, minDilithium: 2, maxDilithium: 5 },
+//    { type: 'cargo', count: 3, minCoins: 3, maxCoins: 8, minPlatinum: 0, maxPlatinum: 1, minDilithium: 0, maxDilithium: 0 },
+    { type: 'mine', count: 3 },
   ],
   storytext: null,
 };
