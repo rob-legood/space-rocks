@@ -228,6 +228,34 @@ export const ENEMY = {
   },
 };
 
+export const STEALTH = {
+  radius:           12,     // collision and visual radius px
+  color:            '#a4f', // purple — distinct from red enemy and cyan drone
+  cloakAlpha:       0.07,   // barely-visible shimmer while cloaked
+  uncloak:          0.40,   // seconds to fade in before firing
+  recloak:          0.60,   // seconds to fade out after firing
+  shotInterval:     3.0,    // seconds between shots while cloaked
+  rotSpeed:         0.9,    // rad/s — slowly rotates even while cloaked
+  hitFlashDuration: 0.30,   // long enough to see the flash through the cloak
+  hp:               1,
+  bullet: {
+    speed:       260,
+    maxDistance: 480,
+    maxAge:      1.3,
+    radius:      2,
+  },
+  fragMinSpeed: 55,   // px/s minimum fragment velocity
+  fragMaxSpeed: 145,  // px/s maximum fragment velocity
+  fragRotSpeed: 4.2,  // rad/s max fragment spin
+  fragMaxAge:   1.0,  // seconds before fragment disappears
+  sparkCount:      8,
+  sparkMinSpeed:  40,
+  sparkMaxSpeed: 120,
+  sparkMinAge:   0.20,
+  sparkMaxAge:   0.50,
+  sparkColor:    '#c88fff', // lighter purple for sparks
+};
+
 export const DRONE = {
   radius:           8,      // collision and visual radius px
   color:            '#4ef', // cyan stroke — visually distinct from red enemy

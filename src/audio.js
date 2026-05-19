@@ -138,6 +138,18 @@ export function playCargoDestroy() {
   sweep('triangle', 280, 90, 0.22, 0.45);
 }
 
+export function playStealthDestroy() {
+  // Cloaking device failing: electric static burst + descending power-down sweep.
+  noiseBurst(620, 1.4, 0.42, 0.80);
+  sweep('sawtooth', 460, 70, 0.38, 0.38);
+}
+
+export function playStealthFire() {
+  // Silenced energy pulse — quiet high-pitch sine with a brief hiss.
+  sweep('sine', 860, 180, 0.16, 0.20);
+  noiseBurst(480, 3.5, 0.10, 0.14);
+}
+
 export function playDroneDestroy() {
   // Electronic pop: sharp high-freq zap + narrow noise crackle.
   sweep('square', 1400, 280, 0.18, 0.35);

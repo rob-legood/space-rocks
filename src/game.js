@@ -1,4 +1,4 @@
-import { CANVAS, ASTEROID, INVULN, HUD, COIN, PLATINUM, DILITHIUM, FRAGMENT, PARTICLE, WARP, WORMHOLE, STATION, SHIP, HIT_SPARK, ENEMY, DRONE, CARGO, MINE, COMET } from './config.js';
+import { CANVAS, ASTEROID, INVULN, HUD, COIN, PLATINUM, DILITHIUM, FRAGMENT, PARTICLE, WARP, WORMHOLE, STATION, SHIP, HIT_SPARK, ENEMY, STEALTH, DRONE, CARGO, MINE, COMET } from './config.js';
 import UPGRADES from './upgrades.json';
 import { getLevel, LEVEL_ZERO } from './levels.js';
 import { Ship } from './entities/ship.js';
@@ -6,6 +6,7 @@ import { Bullet } from './entities/bullet.js';
 import { Asteroid } from './entities/asteroid.js';
 import { Enemy } from './entities/enemy.js';
 import { Drone } from './entities/drone.js';
+import { Stealth } from './entities/stealth.js';
 import { Cargo } from './entities/cargo.js';
 import { Mine } from './entities/mine.js';
 import { Comet } from './entities/comet.js';
@@ -16,7 +17,7 @@ import { circlesOverlap } from './utils/collision.js';
 import { drawAtWrappedPositions, wrap } from './utils/canvas.js';
 import {
   playFire, playBang, playExplosion, playHit,
-  playCoinCollect, playCoinDestroy, playCargoDestroy, playEnemyFire, playDroneDestroy,
+  playCoinCollect, playCoinDestroy, playCargoDestroy, playEnemyFire, playStealthFire, playStealthDestroy, playDroneDestroy,
   playWarpOut, playWarpIn,
   playMenuNav, playMenuSelect,
   startThrust, stopThrust,
@@ -47,6 +48,8 @@ export class Game {
     this._enemyBullets        = [];
     this._pendingEnemySpawns  = [];
     this._drones              = [];
+    this._stealth             = [];
+    this._stealthFragments    = [];
     this._cargos              = [];
     this._splinterParticles   = [];
     this._mines               = [];
@@ -196,6 +199,8 @@ export class Game {
       this._comets               = [];
       this._cometTrail           = [];
       this._drones               = [];
+      this._stealth              = [];
+      this._stealthFragments     = [];
       this.ship.dead = true;
       this._state = 'gameover';
     } else {
@@ -232,6 +237,8 @@ export class Game {
     this._enemyBullets        = [];
     this._pendingEnemySpawns  = [];
     this._drones              = [];
+    this._stealth             = [];
+    this._stealthFragments    = [];
     this._cargos              = [];
     this._splinterParticles   = [];
     this._mines               = [];
@@ -400,6 +407,8 @@ export class Game {
     this._enemies             = [];
     this._enemyBullets        = [];
     this._drones              = [];
+    this._stealth             = [];
+    this._stealthFragments    = [];
     this._splinterParticles   = [];
     this._mines               = [];
     this._shockwaves          = [];
@@ -435,7 +444,7 @@ export class Game {
       this._entryWormhole = null;
       this._invulnTimer   = INVULN.invulnDuration;
       this._state         = 'playing';
-      playMusic(this._drones.length > 0 ? 'enemy' : 'playing');
+      playMusic(this._drones.length > 0 || this._stealth.length > 0 ? 'enemy' : 'playing');
     }
   }
 
@@ -682,6 +691,25 @@ export class Game {
           } while (Math.hypot(x - shipX, y - shipY) < ASTEROID.safeRadius);
           this._comets.push(new Comet(x, y));
         }
+      } else if (entry.type === 'stealth') {
+        for (let i = 0; i < (entry.count ?? 1); i++) {
+          let x, y;
+          do {
+            x = Math.random() * CANVAS.width;
+            y = Math.random() * CANVAS.height;
+          } while (Math.hypot(x - shipX, y - shipY) < ASTEROID.safeRadius);
+          this._stealth.push(new Stealth(x, y, {
+            hp:           entry.hp           ?? STEALTH.hp,
+            speed:        entry.speed        ?? 60,
+            shotInterval: entry.shotInterval ?? STEALTH.shotInterval,
+            minCoins:     entry.minCoins     ?? 0,
+            maxCoins:     entry.maxCoins     ?? 0,
+            minPlatinum:  entry.minPlatinum  ?? 0,
+            maxPlatinum:  entry.maxPlatinum  ?? 0,
+            minDilithium: entry.minDilithium ?? 0,
+            maxDilithium: entry.maxDilithium ?? 0,
+          }));
+        }
       } else if (entry.type === 'drone') {
         for (let i = 0; i < (entry.count ?? 1); i++) {
           let x, y;
@@ -826,6 +854,53 @@ export class Game {
         maxAge: DRONE.sparkMinAge + Math.random() * (DRONE.sparkMaxAge - DRONE.sparkMinAge),
         radius: DRONE.sparkMinRadius + Math.random() * (DRONE.sparkMaxRadius - DRONE.sparkMinRadius),
         color:  DRONE.sparkColor,
+      });
+    }
+  }
+
+  _spawnStealthFragments(s) {
+    const r   = s.radius;
+    const cos = Math.cos(s.angle);
+    const sin = Math.sin(s.angle);
+    const rot = (x, y) => ({ x: cos * x - sin * y, y: sin * x + cos * y });
+
+    // Elongated diamond vertices in world-offset space (matching draw shape).
+    const verts = [
+      rot( r * 1.4,  0),
+      rot( 0,        r * 0.55),
+      rot(-r * 0.9,  0),
+      rot( 0,       -r * 0.55),
+    ];
+
+    for (let i = 0; i < 4; i++) {
+      const a   = verts[i];
+      const b   = verts[(i + 1) % 4];
+      const mx  = (a.x + b.x) / 2;
+      const my  = (a.y + b.y) / 2;
+      const md  = Math.hypot(mx, my);
+      const outDir = md > 0 ? Math.atan2(my, mx) : i * Math.PI / 2;
+      const speed  = STEALTH.fragMinSpeed + Math.random() * (STEALTH.fragMaxSpeed - STEALTH.fragMinSpeed);
+      this._stealthFragments.push({
+        points: [{ x: a.x - mx, y: a.y - my }, { x: b.x - mx, y: b.y - my }],
+        pos:    { x: s.pos.x + mx, y: s.pos.y + my },
+        vel:    { x: s.vel.x + Math.cos(outDir) * speed, y: s.vel.y + Math.sin(outDir) * speed },
+        angle:  0,
+        rotVel: (Math.random() - 0.5) * 2 * STEALTH.fragRotSpeed,
+        age:    0,
+      });
+    }
+
+    // A few purple sparks to punctuate the break-up.
+    for (let i = 0; i < STEALTH.sparkCount; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = STEALTH.sparkMinSpeed + Math.random() * (STEALTH.sparkMaxSpeed - STEALTH.sparkMinSpeed);
+      this._hitParticles.push({
+        pos:    { x: s.pos.x, y: s.pos.y },
+        vel:    { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed },
+        age:    0,
+        maxAge: STEALTH.sparkMinAge + Math.random() * (STEALTH.sparkMaxAge - STEALTH.sparkMinAge),
+        radius: 1.5 + Math.random() * 2,
+        color:  STEALTH.sparkColor,
       });
     }
   }
@@ -1408,6 +1483,23 @@ export class Game {
 
     for (const d of this._drones) d.update(dt, this.bounds, this.ship.pos);
 
+    // Update stealth enemies; collect shots fired on uncloak.
+    for (const s of this._stealth) {
+      s.update(dt, this.bounds);
+      const shot = s.tryFire();
+      if (shot) { this._enemyBullets.push(shot); playStealthFire(); }
+    }
+
+    // Stealth death fragments: drift, spin, age out.
+    for (const f of this._stealthFragments) {
+      f.pos.x += f.vel.x * dt;
+      f.pos.y += f.vel.y * dt;
+      f.angle += f.rotVel * dt;
+      f.age   += dt;
+      wrap(f.pos, this.bounds.width, this.bounds.height);
+    }
+    this._stealthFragments = this._stealthFragments.filter(f => f.age < STEALTH.fragMaxAge);
+
     // Update enemy bullets.
     for (const b of this._enemyBullets) {
       b.age += dt;
@@ -1523,8 +1615,37 @@ export class Game {
     });
     const dronesGone = droneCountBefore > 0 && this._drones.length === 0;
 
-    if ((enemiesGone && this._drones.length === 0) ||
-        (dronesGone  && this._enemies.length === 0)) playMusic('playing');
+    // Player bullets vs stealth (hit while cloaked counts; flash reveals them).
+    for (const b of this.bullets) {
+      if (b.dead) continue;
+      for (const s of this._stealth) {
+        if (circlesOverlap(b, s, this.bounds)) {
+          b.dead = true;
+          s.hp -= b.damage;
+          if (s.hp > 0) {
+            s.hitFlash = STEALTH.hitFlashDuration;
+            this._spawnHitParticles(b.pos);
+            playHit();
+          }
+          break;
+        }
+      }
+    }
+    const stealthCountBefore = this._stealth.length;
+    this._stealth = this._stealth.filter(s => {
+      if (s.hp <= 0) {
+        this._spawnStealthFragments(s);
+        this._spawnResources(s.pos, s);
+        playStealthDestroy();
+        return false;
+      }
+      return true;
+    });
+    const stealthGone = stealthCountBefore > 0 && this._stealth.length === 0;
+
+    if ((enemiesGone && this._drones.length === 0 && this._stealth.length === 0) ||
+        (dronesGone  && this._enemies.length === 0 && this._stealth.length === 0) ||
+        (stealthGone && this._enemies.length === 0 && this._drones.length  === 0)) playMusic('playing');
 
     // Coins: move, spin, wrap, age.
     for (const c of this._coins) {
@@ -1733,6 +1854,15 @@ export class Game {
           }
         }
       }
+      // Ship vs stealth (collides even while cloaked).
+      if (!this.ship.dead) {
+        for (const s of this._stealth) {
+          if (circlesOverlap(this.ship, s, this.bounds)) {
+            this._killShip();
+            break;
+          }
+        }
+      }
     }
 
     // Ship vs cargo: crate destroyed, no loot, ship unharmed.
@@ -1793,12 +1923,13 @@ export class Game {
 
     this._shockwaves = this._shockwaves.filter(sw => !sw.dead);
 
-    // Level complete: all required asteroids, enemies, drones, mines, and comets cleared.
+    // Level complete: all required asteroids, enemies, drones, stealth, mines, and comets cleared.
     if (this._state === 'playing' &&
         this.asteroids.filter(a => !a.optional).length === 0 &&
         this._enemies.length === 0 &&
         this._pendingEnemySpawns.length === 0 &&
         this._drones.length === 0 &&
+        this._stealth.length === 0 &&
         this._mines.length === 0 &&
         this._comets.length === 0) {
       this._state = 'levelcomplete';
@@ -1908,6 +2039,33 @@ export class Game {
     for (const c of this._cargos) c.draw(ctx, this.bounds);
     for (const e of this._enemies) e.draw(ctx, this.bounds);
     for (const d of this._drones) d.draw(ctx, this.bounds);
+    for (const s of this._stealth) s.draw(ctx, this.bounds);
+
+    // Stealth death fragments — purple, fading out.
+    ctx.save();
+    ctx.strokeStyle = STEALTH.color;
+    for (const f of this._stealthFragments) {
+      ctx.globalAlpha = (1 - f.age / STEALTH.fragMaxAge) ** 1.5;
+      const cos = Math.cos(f.angle);
+      const sin = Math.sin(f.angle);
+      const toWorld = ({ x, y }) => ({
+        x: f.pos.x + cos * x - sin * y,
+        y: f.pos.y + sin * x + cos * y,
+      });
+      drawAtWrappedPositions(f.pos, 20, this.bounds, (wx, wy) => {
+        const dx = wx - f.pos.x;
+        const dy = wy - f.pos.y;
+        const a0 = toWorld(f.points[0]);
+        const a1 = toWorld(f.points[1]);
+        ctx.beginPath();
+        ctx.moveTo(a0.x + dx, a0.y + dy);
+        ctx.lineTo(a1.x + dx, a1.y + dy);
+        ctx.stroke();
+      });
+    }
+    ctx.globalAlpha = 1;
+    ctx.restore();
+
     for (const m of this._mines) m.draw(ctx, this.bounds);
     for (const c of this._comets) c.draw(ctx);
 
