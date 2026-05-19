@@ -132,7 +132,7 @@ Dev-only level gated by `LEVEL_ZERO.enabled`. Never counts toward the campaign �
 **Notes:**
 - L11 introduces cargo crates alongside standard rocks.
 - L12 introduces dangerous asteroids (red; 1 shot → 12 tiny fast shards, `dyingDuration` countdown).
-- L15 introduces the blackhole environmental hazard (not yet implemented) and the boss The Tug.
+- L15 introduces the blackhole environmental hazard (DONE — stationary gravity well; pulls ship toward center, instant kill at event horizon; indestructible) and the boss The Tug.
 - L16–L17 introduce civilian ships (not yet implemented).
 - L19 introduces bomber enemies (not yet implemented).
 - L20 is the Act II boss fight — The Acquisitions Officer.

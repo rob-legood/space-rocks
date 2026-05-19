@@ -155,6 +155,25 @@ export const MINE = {
   shockwaveColor:     '#f84',
 };
 
+export const BLACKHOLE = {
+  radius:            26,       // visual event-horizon radius px
+  killRadius:        10,       // ship destroyed within this px from center
+  pullStrength:      1200000,  // F = pullStrength / dist^2  (px/s² * px²)
+  pullMinDist:       50,       // distance clamp to prevent infinite force
+  diskParticles:     60,       // accretion disk particle count
+  diskRadiusMin:     32,       // inner edge of accretion disk px
+  diskRadiusMax:     80,       // outer edge of accretion disk px
+  particleInwardMin: 4,        // px/s minimum inward spiral speed
+  particleInwardMax: 14,       // px/s maximum inward spiral speed
+  orbitSpeedBase:    120,      // orbit speed = base / dist (rad/s)
+  ringPulseFreq:     4,        // event-horizon ring pulse rate rad/s
+  glowRadius:        130,      // radius of outer ambient glow px
+  coreGlowColor:     'rgba(100,0,180,0.4)',
+  outerGlowColor:    'rgba(200,60,0,0.12)',
+  ringColor:         '#9030e0',
+  particleColors:    ['#ff6600', '#ff9933', '#ffcc44', '#dd44ff', '#9922ee', '#ff3377'],
+};
+
 export const STARS = {
   count:     80,
   minRadius: 0.5,   // px — smallest pinprick

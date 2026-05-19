@@ -26,7 +26,7 @@
 //   'stealth'    — enemy that cloaks between shots - DONE!
 //   'drone'      — small fast enemy in swarms - DONE!
 //   'shielded'   — asteroid with regenerating shield bubble
-//   'blackhole'  — env hazard, pulls everything toward it
+//   'blackhole'  — env hazard, pulls everything toward it - DONE!
 //   'plasmacloud'— env hazard, damages over time
 //   'beacon'     — interactable object that triggers a wave
 //   'salvage'    — slow wreckage that drops parts/coins
@@ -623,7 +623,8 @@ export const LEVEL_ZERO = {
   enabled: true,
   title: 'Level 0: Dev Sandbox',
   spawn: [
-    { type: 'bomber', count: 1 },
+    { type: 'blackhole', count: 1 },
+    { type: 'large', count: 2 },
 //    { type: 'stealth', count: 3 },
 //    { type: 'drone', count: 5 },
 //    { type: 'large', count: 0, maxCoins: 10, maxCoins: 10, minPlatinum: 0, maxPlatinum: 0, minDilithium: 0, maxDilithium: 0 },

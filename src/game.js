@@ -1,4 +1,4 @@
-import { CANVAS, ASTEROID, INVULN, HUD, COIN, PLATINUM, DILITHIUM, FRAGMENT, PARTICLE, WARP, WORMHOLE, STATION, SHIP, HIT_SPARK, ENEMY, STEALTH, BOMBER, DRONE, CARGO, MINE, COMET } from './config.js';
+import { CANVAS, ASTEROID, INVULN, HUD, COIN, PLATINUM, DILITHIUM, FRAGMENT, PARTICLE, WARP, WORMHOLE, STATION, SHIP, HIT_SPARK, ENEMY, STEALTH, BOMBER, DRONE, CARGO, MINE, COMET, BLACKHOLE } from './config.js';
 import UPGRADES from './upgrades.json';
 import { getLevel, LEVEL_ZERO } from './levels.js';
 import { Ship } from './entities/ship.js';
@@ -11,6 +11,7 @@ import { Bomber } from './entities/bomber.js';
 import { Cargo } from './entities/cargo.js';
 import { Mine } from './entities/mine.js';
 import { Comet } from './entities/comet.js';
+import { Blackhole } from './entities/blackhole.js';
 import { Wormhole } from './entities/wormhole.js';
 import { Starfield } from './entities/starfield.js';
 import { Input } from './input.js';
@@ -62,6 +63,7 @@ export class Game {
     this._shockwaves          = [];
     this._comets              = [];
     this._cometTrail          = [];
+    this._blackholes          = [];
     this._score        = 0;
     this._lives       = HUD.lives;
     this._warpPhase   = 'none'; // 'none' | 'out' | 'in'
@@ -257,6 +259,7 @@ export class Game {
     this._shockwaves          = [];
     this._comets              = [];
     this._cometTrail          = [];
+    this._blackholes          = [];
     this._score        = 0;
     this._lives       = HUD.lives;
     this._warpPhase     = 'none';
@@ -429,6 +432,7 @@ export class Game {
     this._shockwaves          = [];
     this._comets              = [];
     this._cometTrail          = [];
+    this._blackholes          = [];
     this._warpPhase           = 'none';
     this._warpTimer           = 0;
     this._exitWormhole        = null;
@@ -454,6 +458,7 @@ export class Game {
     }
     this._entryWormhole.update(dt);
     for (const a of this.asteroids) a.update(dt, this.bounds);
+    for (const bh of this._blackholes) bh.update(dt);
     for (const c of this._cargos) c.update(dt, this.bounds);
     if (this._enterTimer >= WORMHOLE.enterDuration) {
       this._entryWormhole = null;
@@ -473,6 +478,7 @@ export class Game {
     ctx.lineCap     = 'round';
     ctx.lineJoin    = 'round';
 
+    for (const bh of this._blackholes) bh.draw(ctx);
     for (const a of this.asteroids) a.draw(ctx, this.bounds);
     for (const c of this._cargos) c.draw(ctx, this.bounds);
 
@@ -534,6 +540,7 @@ export class Game {
 
   _updateGameOver(dt) {
     for (const a of this.asteroids) a.update(dt, this.bounds);
+    for (const bh of this._blackholes) bh.update(dt);
 
     for (const f of this._fragments) {
       f.pos.x += f.vel.x * dt;
@@ -574,6 +581,7 @@ export class Game {
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
 
+    for (const bh of this._blackholes) bh.draw(ctx);
     for (const a of this.asteroids) a.draw(ctx, this.bounds);
 
     for (const f of this._fragments) {
@@ -705,6 +713,15 @@ export class Game {
             y = Math.random() * CANVAS.height;
           } while (Math.hypot(x - shipX, y - shipY) < ASTEROID.safeRadius);
           this._comets.push(new Comet(x, y));
+        }
+      } else if (entry.type === 'blackhole') {
+        for (let i = 0; i < (entry.count ?? 1); i++) {
+          let x, y;
+          do {
+            x = Math.random() * CANVAS.width;
+            y = Math.random() * CANVAS.height;
+          } while (Math.hypot(x - shipX, y - shipY) < ASTEROID.safeRadius);
+          this._blackholes.push(new Blackhole(x, y));
         }
       } else if (entry.type === 'stealth') {
         for (let i = 0; i < (entry.count ?? 1); i++) {
@@ -1545,6 +1562,28 @@ export class Game {
     }
     this._cometTrail = this._cometTrail.filter(p => p.age < p.maxAge);
 
+    // Update black holes and apply gravity pull to the ship.
+    for (const bh of this._blackholes) {
+      bh.update(dt);
+      if (!this.ship.dead && this._state === 'playing') {
+        let dx = bh.pos.x - this.ship.pos.x;
+        let dy = bh.pos.y - this.ship.pos.y;
+        if (dx >  this.bounds.width  / 2) dx -= this.bounds.width;
+        if (dx < -this.bounds.width  / 2) dx += this.bounds.width;
+        if (dy >  this.bounds.height / 2) dy -= this.bounds.height;
+        if (dy < -this.bounds.height / 2) dy += this.bounds.height;
+        const rawDist = Math.hypot(dx, dy);
+        if (rawDist < BLACKHOLE.killRadius) {
+          this._killShip();
+        } else {
+          const dist  = Math.max(rawDist, BLACKHOLE.pullMinDist);
+          const force = BLACKHOLE.pullStrength / (dist * dist);
+          this.ship.vel.x += (dx / rawDist) * force * dt;
+          this.ship.vel.y += (dy / rawDist) * force * dt;
+        }
+      }
+    }
+
     // Expand shockwaves; mark done when they reach max radius.
     for (const sw of this._shockwaves) {
       sw.radius += sw.expandSpeed * dt;
@@ -2323,6 +2362,7 @@ export class Game {
     }
     ctx.restore();
 
+    for (const bh of this._blackholes) bh.draw(ctx);
     for (const m of this._mines) m.draw(ctx, this.bounds);
     for (const c of this._comets) c.draw(ctx);
 
