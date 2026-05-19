@@ -169,6 +169,12 @@ export function playStealthFire() {
   noiseBurst(480, 3.5, 0.10, 0.14);
 }
 
+export function playShieldHit() {
+  // Resonant energy deflection — glassy high-pitched ping with a brief shimmer.
+  sweep('sine', 1900, 700, 0.22, 0.28);
+  sweep('sine', 2800, 1400, 0.10, 0.12);
+}
+
 export function playDroneDestroy() {
   // Electronic pop: sharp high-freq zap + narrow noise crackle.
   sweep('square', 1400, 280, 0.18, 0.35);

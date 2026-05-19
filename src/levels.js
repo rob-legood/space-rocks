@@ -623,7 +623,7 @@ export const LEVEL_ZERO = {
   enabled: true,
   title: 'Level 0: Dev Sandbox',
   spawn: [
-    { type: 'blackhole', count: 1 },
+    { type: 'enemy', count: 1, speed: 40, shotInterval: 2, minSpawnTime: 2, maxSpawnTime: 4, hp: 1, size: 15, shield: 2, minCoins: 5, maxCoins: 10 },
     { type: 'large', count: 2 },
 //    { type: 'stealth', count: 3 },
 //    { type: 'drone', count: 5 },

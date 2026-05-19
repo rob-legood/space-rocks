@@ -29,6 +29,7 @@ Each entry in `spawn` is `{ type: string, count: number, ...options }`. `type` i
 | `minSpawnTime`   | number | 5       | Earliest the enemy can appear (seconds)     |
 | `maxSpawnTime`   | number | 10      | Latest the enemy can appear (seconds)       |
 | `hp`             | number | 1       | Hit points (1 shot = 1 damage)              |
+| `shield`         | number | 0       | Shield HP; bullets absorbed until depleted; recharges after 3 s delay |
 | `size`           | number | —       | Visual radius override (boss enemies)       |
 | `minCoins`       | number | 0       | Min space bucks dropped on death            |
 | `maxCoins`       | number | 0       | Max space bucks dropped on death            |

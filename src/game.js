@@ -18,7 +18,7 @@ import { Input } from './input.js';
 import { circlesOverlap } from './utils/collision.js';
 import { drawAtWrappedPositions, wrap } from './utils/canvas.js';
 import {
-  playFire, playBang, playExplosion, playHit,
+  playFire, playBang, playExplosion, playHit, playShieldHit,
   playCoinCollect, playCoinDestroy, playCargoDestroy, playEnemyFire,
   playStealthFire, playStealthDestroy, playDroneDestroy,
   playMissileLaunch, playMissileExplode, playBomberDestroy,
@@ -676,6 +676,7 @@ export class Game {
             shotInterval: entry.shotInterval ?? 1,
             hp:           entry.hp           ?? 1,
             size:         entry.size         ?? undefined,
+            shield:       entry.shield       ?? 0,
             minCoins:     entry.minCoins     ?? 0,
             maxCoins:     entry.maxCoins     ?? 0,
             minPlatinum:  entry.minPlatinum  ?? 0,
@@ -1605,7 +1606,7 @@ export class Game {
           x = Math.random() * CANVAS.width;
           y = Math.random() * CANVAS.height;
         } while (Math.hypot(x - this.ship.pos.x, y - this.ship.pos.y) < ASTEROID.safeRadius);
-        this._enemies.push(new Enemy(x, y, { speed: p.speed, shotInterval: p.shotInterval, hp: p.hp, size: p.size, minCoins: p.minCoins, maxCoins: p.maxCoins, minPlatinum: p.minPlatinum, maxPlatinum: p.maxPlatinum, minDilithium: p.minDilithium, maxDilithium: p.maxDilithium }));
+        this._enemies.push(new Enemy(x, y, { speed: p.speed, shotInterval: p.shotInterval, hp: p.hp, size: p.size, shield: p.shield, minCoins: p.minCoins, maxCoins: p.maxCoins, minPlatinum: p.minPlatinum, maxPlatinum: p.maxPlatinum, minDilithium: p.minDilithium, maxDilithium: p.maxDilithium }));
       }
       if (!hadEnemies && this._enemies.length > 0) playMusic('enemy');
     }
@@ -1750,11 +1751,19 @@ export class Game {
       for (const e of this._enemies) {
         if (circlesOverlap(b, e, this.bounds)) {
           b.dead = true;
-          e.hp -= b.damage;
-          if (e.hp > 0) {
-            e.hitFlash = ENEMY.hitFlashDuration;
+          if (e.shield > 0) {
+            e.shield = Math.max(0, e.shield - b.damage);
+            e._shieldRechargeTimer = ENEMY.shieldRechargeDelay;
+            e.shieldFlash = ENEMY.shieldFlashDuration;
             this._spawnHitParticles(b.pos);
-            playHit();
+            playShieldHit();
+          } else {
+            e.hp -= b.damage;
+            if (e.hp > 0) {
+              e.hitFlash = ENEMY.hitFlashDuration;
+              this._spawnHitParticles(b.pos);
+              playHit();
+            }
           }
           break;
         }

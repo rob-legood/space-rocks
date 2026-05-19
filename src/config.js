@@ -236,9 +236,14 @@ export const SHIP = {
 };
 
 export const ENEMY = {
-  radius:           12,     // collision and visual radius px
-  color:            '#f44', // stroke colour
-  hitFlashDuration: 0.12,   // seconds the red-hit tint lasts
+  radius:              12,     // collision and visual radius px
+  color:               '#f44', // stroke colour
+  hitFlashDuration:    0.12,   // seconds the red-hit tint lasts
+  shieldColor:         '#4af', // cyan-blue shield arc
+  shieldFlashDuration: 0.15,   // seconds shield flashes white on hit
+  shieldRechargeDelay: 3.0,    // seconds after last hit before recharge starts
+  shieldRechargeRate:  2.0,    // shield HP per second while recharging
+  shieldOffset:        7,      // px gap between enemy edge and shield arc
   bullet: {
     speed:       280,  // px/s
     maxDistance: 520,  // px before expiry
