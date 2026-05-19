@@ -23,7 +23,7 @@
 //   'comet'      — very fast rock with a particle trail - DONE!
 //   'civilian'   — friendly ship; bonus if alive, penalty if dead
 //   'bomber'     — slow enemy with heavy, slow projectiles
-//   'stealth'    — enemy that cloaks between shots
+//   'stealth'    — enemy that cloaks between shots - DONE!
 //   'drone'      — small fast enemy in swarms - DONE!
 //   'shielded'   — asteroid with regenerating shield bubble
 //   'blackhole'  — env hazard, pulls everything toward it
@@ -623,7 +623,8 @@ export const LEVEL_ZERO = {
   enabled: true,
   title: 'Level 0: Dev Sandbox',
   spawn: [
-    { type: 'stealth', count: 3 },
+    { type: 'bomber', count: 1 },
+//    { type: 'stealth', count: 3 },
 //    { type: 'drone', count: 5 },
 //    { type: 'large', count: 0, maxCoins: 10, maxCoins: 10, minPlatinum: 0, maxPlatinum: 0, minDilithium: 0, maxDilithium: 0 },
 //    { type: 'small', count: 1, maxCoins: 1, maxCoins: 3, minPlatinum: 0, maxPlatinum: 0, minDilithium: 0, maxDilithium: 0 },

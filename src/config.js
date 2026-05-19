@@ -228,6 +228,35 @@ export const ENEMY = {
   },
 };
 
+export const BOMBER = {
+  radius:           22,
+  color:            '#f64',   // warm orange-red — distinct from all other enemies
+  hitFlashDuration: 0.14,
+  speed:            38,       // px/s slow drift
+  hp:               8,
+  shotInterval:     3.5,      // seconds between missile launches
+  missile: {
+    radius:        3,
+    color:         '#ff8',    // bright yellow
+    speed:         210,       // px/s max
+    accel:         290,       // px/s²
+    turnRate:      3.0,       // rad/s — quite agile once up to speed
+    maxAge:        4.5,       // seconds until self-destruct
+    sparkCount:    5,
+    sparkMinSpeed: 50,        sparkMaxSpeed: 130,
+    sparkMinAge:   0.15,      sparkMaxAge:   0.40,
+    sparkColor:    '#ff8',
+  },
+  fragMinSpeed:  70,
+  fragMaxSpeed: 190,
+  fragRotSpeed:   3.2,
+  fragMaxAge:     1.5,
+  sparkCount:    20,
+  sparkMinSpeed:  80,         sparkMaxSpeed: 260,
+  sparkMinAge:    0.45,       sparkMaxAge:   1.2,
+  sparkColors:   ['#f64', '#f80', '#f42', '#ffc', '#f00'],
+};
+
 export const STEALTH = {
   radius:           12,     // collision and visual radius px
   color:            '#a4f', // purple — distinct from red enemy and cyan drone

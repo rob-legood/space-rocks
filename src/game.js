@@ -1,4 +1,4 @@
-import { CANVAS, ASTEROID, INVULN, HUD, COIN, PLATINUM, DILITHIUM, FRAGMENT, PARTICLE, WARP, WORMHOLE, STATION, SHIP, HIT_SPARK, ENEMY, STEALTH, DRONE, CARGO, MINE, COMET } from './config.js';
+import { CANVAS, ASTEROID, INVULN, HUD, COIN, PLATINUM, DILITHIUM, FRAGMENT, PARTICLE, WARP, WORMHOLE, STATION, SHIP, HIT_SPARK, ENEMY, STEALTH, BOMBER, DRONE, CARGO, MINE, COMET } from './config.js';
 import UPGRADES from './upgrades.json';
 import { getLevel, LEVEL_ZERO } from './levels.js';
 import { Ship } from './entities/ship.js';
@@ -7,6 +7,7 @@ import { Asteroid } from './entities/asteroid.js';
 import { Enemy } from './entities/enemy.js';
 import { Drone } from './entities/drone.js';
 import { Stealth } from './entities/stealth.js';
+import { Bomber } from './entities/bomber.js';
 import { Cargo } from './entities/cargo.js';
 import { Mine } from './entities/mine.js';
 import { Comet } from './entities/comet.js';
@@ -17,7 +18,9 @@ import { circlesOverlap } from './utils/collision.js';
 import { drawAtWrappedPositions, wrap } from './utils/canvas.js';
 import {
   playFire, playBang, playExplosion, playHit,
-  playCoinCollect, playCoinDestroy, playCargoDestroy, playEnemyFire, playStealthFire, playStealthDestroy, playDroneDestroy,
+  playCoinCollect, playCoinDestroy, playCargoDestroy, playEnemyFire,
+  playStealthFire, playStealthDestroy, playDroneDestroy,
+  playMissileLaunch, playMissileExplode, playBomberDestroy,
   playWarpOut, playWarpIn,
   playMenuNav, playMenuSelect,
   startThrust, stopThrust,
@@ -50,6 +53,9 @@ export class Game {
     this._drones              = [];
     this._stealth             = [];
     this._stealthFragments    = [];
+    this._bombers             = [];
+    this._missiles            = [];
+    this._bomberFragments     = [];
     this._cargos              = [];
     this._splinterParticles   = [];
     this._mines               = [];
@@ -201,6 +207,9 @@ export class Game {
       this._drones               = [];
       this._stealth              = [];
       this._stealthFragments     = [];
+      this._bombers              = [];
+      this._missiles             = [];
+      this._bomberFragments      = [];
       this.ship.dead = true;
       this._state = 'gameover';
     } else {
@@ -239,6 +248,9 @@ export class Game {
     this._drones              = [];
     this._stealth             = [];
     this._stealthFragments    = [];
+    this._bombers             = [];
+    this._missiles            = [];
+    this._bomberFragments     = [];
     this._cargos              = [];
     this._splinterParticles   = [];
     this._mines               = [];
@@ -409,6 +421,9 @@ export class Game {
     this._drones              = [];
     this._stealth             = [];
     this._stealthFragments    = [];
+    this._bombers             = [];
+    this._missiles            = [];
+    this._bomberFragments     = [];
     this._splinterParticles   = [];
     this._mines               = [];
     this._shockwaves          = [];
@@ -444,7 +459,7 @@ export class Game {
       this._entryWormhole = null;
       this._invulnTimer   = INVULN.invulnDuration;
       this._state         = 'playing';
-      playMusic(this._drones.length > 0 || this._stealth.length > 0 ? 'enemy' : 'playing');
+      playMusic(this._drones.length > 0 || this._stealth.length > 0 || this._bombers.length > 0 ? 'enemy' : 'playing');
     }
   }
 
@@ -730,6 +745,25 @@ export class Game {
             maxDilithium: entry.maxDilithium ?? 0,
           }));
         }
+      } else if (entry.type === 'bomber') {
+        for (let i = 0; i < (entry.count ?? 1); i++) {
+          let x, y;
+          do {
+            x = Math.random() * CANVAS.width;
+            y = Math.random() * CANVAS.height;
+          } while (Math.hypot(x - shipX, y - shipY) < ASTEROID.safeRadius);
+          this._bombers.push(new Bomber(x, y, {
+            hp:           entry.hp           ?? BOMBER.hp,
+            speed:        entry.speed        ?? BOMBER.speed,
+            shotInterval: entry.shotInterval ?? BOMBER.shotInterval,
+            minCoins:     entry.minCoins     ?? 0,
+            maxCoins:     entry.maxCoins     ?? 0,
+            minPlatinum:  entry.minPlatinum  ?? 0,
+            maxPlatinum:  entry.maxPlatinum  ?? 0,
+            minDilithium: entry.minDilithium ?? 0,
+            maxDilithium: entry.maxDilithium ?? 0,
+          }));
+        }
       } else {
         const { type, count } = entry;
         let spawned = 0;
@@ -901,6 +935,69 @@ export class Game {
         maxAge: STEALTH.sparkMinAge + Math.random() * (STEALTH.sparkMaxAge - STEALTH.sparkMinAge),
         radius: 1.5 + Math.random() * 2,
         color:  STEALTH.sparkColor,
+      });
+    }
+  }
+
+  _spawnMissileParticles(pos) {
+    for (let i = 0; i < BOMBER.missile.sparkCount; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = BOMBER.missile.sparkMinSpeed + Math.random() * (BOMBER.missile.sparkMaxSpeed - BOMBER.missile.sparkMinSpeed);
+      this._hitParticles.push({
+        pos:    { x: pos.x, y: pos.y },
+        vel:    { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed },
+        age:    0,
+        maxAge: BOMBER.missile.sparkMinAge + Math.random() * (BOMBER.missile.sparkMaxAge - BOMBER.missile.sparkMinAge),
+        radius: 1 + Math.random() * 1.5,
+        color:  BOMBER.missile.sparkColor,
+      });
+    }
+  }
+
+  _spawnBomberFragments(bm) {
+    const r   = bm.radius;
+    const cos = Math.cos(bm.angle);
+    const sin = Math.sin(bm.angle);
+    const rot = (x, y) => ({ x: cos * x - sin * y, y: sin * x + cos * y });
+
+    const localVerts = [
+      [r,         0        ],
+      [0,         r        ],
+      [-r * 0.5,  r * 0.6  ],
+      [-r * 0.7,  0        ],
+      [-r * 0.5, -r * 0.6  ],
+      [0,        -r        ],
+    ];
+    const verts = localVerts.map(([x, y]) => rot(x, y));
+
+    for (let i = 0; i < 6; i++) {
+      const a  = verts[i];
+      const b  = verts[(i + 1) % 6];
+      const mx = (a.x + b.x) / 2;
+      const my = (a.y + b.y) / 2;
+      const md = Math.hypot(mx, my);
+      const outDir = md > 0 ? Math.atan2(my, mx) : i * Math.PI / 3;
+      const speed  = BOMBER.fragMinSpeed + Math.random() * (BOMBER.fragMaxSpeed - BOMBER.fragMinSpeed);
+      this._bomberFragments.push({
+        points: [{ x: a.x - mx, y: a.y - my }, { x: b.x - mx, y: b.y - my }],
+        pos:    { x: bm.pos.x + mx, y: bm.pos.y + my },
+        vel:    { x: bm.vel.x + Math.cos(outDir) * speed, y: bm.vel.y + Math.sin(outDir) * speed },
+        angle:  0,
+        rotVel: (Math.random() - 0.5) * 2 * BOMBER.fragRotSpeed,
+        age:    0,
+      });
+    }
+
+    for (let i = 0; i < BOMBER.sparkCount; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = BOMBER.sparkMinSpeed + Math.random() * (BOMBER.sparkMaxSpeed - BOMBER.sparkMinSpeed);
+      this._hitParticles.push({
+        pos:    { x: bm.pos.x, y: bm.pos.y },
+        vel:    { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed },
+        age:    0,
+        maxAge: BOMBER.sparkMinAge + Math.random() * (BOMBER.sparkMaxAge - BOMBER.sparkMinAge),
+        radius: 2 + Math.random() * 3,
+        color:  BOMBER.sparkColors[Math.floor(Math.random() * BOMBER.sparkColors.length)],
       });
     }
   }
@@ -1500,6 +1597,56 @@ export class Game {
     }
     this._stealthFragments = this._stealthFragments.filter(f => f.age < STEALTH.fragMaxAge);
 
+    // Bombers: update + fire missiles.
+    for (const bm of this._bombers) {
+      bm.update(dt, this.bounds);
+      const m = bm.tryFire(this.ship.pos, this.bounds);
+      if (m) { this._missiles.push(m); playMissileLaunch(); }
+    }
+
+    // Missiles: home toward ship, age out.
+    for (const m of this._missiles) {
+      if (m.dead) continue;
+      let dx = this.ship.pos.x - m.pos.x;
+      let dy = this.ship.pos.y - m.pos.y;
+      if (dx >  this.bounds.width  / 2) dx -= this.bounds.width;
+      else if (dx < -this.bounds.width  / 2) dx += this.bounds.width;
+      if (dy >  this.bounds.height / 2) dy -= this.bounds.height;
+      else if (dy < -this.bounds.height / 2) dy += this.bounds.height;
+      const targetAngle = Math.atan2(dy, dx);
+      let diff = targetAngle - m.angle;
+      while (diff >  Math.PI) diff -= Math.PI * 2;
+      while (diff < -Math.PI) diff += Math.PI * 2;
+      m.angle += Math.sign(diff) * Math.min(Math.abs(diff), BOMBER.missile.turnRate * dt);
+      m.vel.x += Math.cos(m.angle) * BOMBER.missile.accel * dt;
+      m.vel.y += Math.sin(m.angle) * BOMBER.missile.accel * dt;
+      const spd = Math.hypot(m.vel.x, m.vel.y);
+      if (spd > BOMBER.missile.speed) {
+        m.vel.x = m.vel.x / spd * BOMBER.missile.speed;
+        m.vel.y = m.vel.y / spd * BOMBER.missile.speed;
+      }
+      m.pos.x += m.vel.x * dt;
+      m.pos.y += m.vel.y * dt;
+      m.age   += dt;
+      wrap(m.pos, this.bounds.width, this.bounds.height);
+      if (m.age >= BOMBER.missile.maxAge) {
+        m.dead = true;
+        this._spawnMissileParticles(m.pos);
+        playMissileExplode();
+      }
+    }
+    this._missiles = this._missiles.filter(m => !m.dead);
+
+    // Bomber death fragments: drift, spin, age out.
+    for (const f of this._bomberFragments) {
+      f.pos.x += f.vel.x * dt;
+      f.pos.y += f.vel.y * dt;
+      f.angle += f.rotVel * dt;
+      f.age   += dt;
+      wrap(f.pos, this.bounds.width, this.bounds.height);
+    }
+    this._bomberFragments = this._bomberFragments.filter(f => f.age < BOMBER.fragMaxAge);
+
     // Update enemy bullets.
     for (const b of this._enemyBullets) {
       b.age += dt;
@@ -1643,9 +1790,55 @@ export class Game {
     });
     const stealthGone = stealthCountBefore > 0 && this._stealth.length === 0;
 
-    if ((enemiesGone && this._drones.length === 0 && this._stealth.length === 0) ||
-        (dronesGone  && this._enemies.length === 0 && this._stealth.length === 0) ||
-        (stealthGone && this._enemies.length === 0 && this._drones.length  === 0)) playMusic('playing');
+    // Player bullets vs bombers.
+    for (const b of this.bullets) {
+      if (b.dead) continue;
+      for (const bm of this._bombers) {
+        if (circlesOverlap(b, bm, this.bounds)) {
+          b.dead = true;
+          bm.hp -= b.damage;
+          if (bm.hp > 0) {
+            bm.hitFlash = BOMBER.hitFlashDuration;
+            this._spawnHitParticles(b.pos);
+            playHit();
+          }
+          break;
+        }
+      }
+    }
+    const bomberCountBefore = this._bombers.length;
+    this._bombers = this._bombers.filter(bm => {
+      if (bm.hp <= 0) {
+        this._missiles = this._missiles.filter(m => m.bomberId !== bm.id);
+        this._spawnBomberFragments(bm);
+        this._spawnResources(bm.pos, bm);
+        playBomberDestroy();
+        return false;
+      }
+      return true;
+    });
+    const bomberGone = bomberCountBefore > 0 && this._bombers.length === 0;
+
+    // Player bullets vs missiles.
+    const deadMissiles = new Set();
+    for (const b of this.bullets) {
+      if (b.dead) continue;
+      for (const m of this._missiles) {
+        if (!deadMissiles.has(m) && circlesOverlap(b, m, this.bounds)) {
+          b.dead = true;
+          deadMissiles.add(m);
+          this._spawnMissileParticles(m.pos);
+          playMissileExplode();
+          break;
+        }
+      }
+    }
+    this._missiles = this._missiles.filter(m => !deadMissiles.has(m));
+
+    if ((enemiesGone && this._drones.length === 0 && this._stealth.length === 0 && this._bombers.length === 0) ||
+        (dronesGone  && this._enemies.length === 0 && this._stealth.length === 0 && this._bombers.length === 0) ||
+        (stealthGone && this._enemies.length === 0 && this._drones.length  === 0 && this._bombers.length === 0) ||
+        (bomberGone  && this._enemies.length === 0 && this._drones.length  === 0 && this._stealth.length === 0)) playMusic('playing');
 
     // Coins: move, spin, wrap, age.
     for (const c of this._coins) {
@@ -1863,6 +2056,26 @@ export class Game {
           }
         }
       }
+      // Ship vs missiles.
+      if (!this.ship.dead) {
+        for (const m of this._missiles) {
+          if (circlesOverlap(this.ship, m, this.bounds)) {
+            m.dead = true;
+            this._killShip();
+            break;
+          }
+        }
+        this._missiles = this._missiles.filter(m => !m.dead);
+      }
+      // Ship vs bomber body.
+      if (!this.ship.dead) {
+        for (const bm of this._bombers) {
+          if (circlesOverlap(this.ship, bm, this.bounds)) {
+            this._killShip();
+            break;
+          }
+        }
+      }
     }
 
     // Ship vs cargo: crate destroyed, no loot, ship unharmed.
@@ -1930,6 +2143,8 @@ export class Game {
         this._pendingEnemySpawns.length === 0 &&
         this._drones.length === 0 &&
         this._stealth.length === 0 &&
+        this._bombers.length === 0 &&
+        this._missiles.length === 0 &&
         this._mines.length === 0 &&
         this._comets.length === 0) {
       this._state = 'levelcomplete';
@@ -2040,6 +2255,7 @@ export class Game {
     for (const e of this._enemies) e.draw(ctx, this.bounds);
     for (const d of this._drones) d.draw(ctx, this.bounds);
     for (const s of this._stealth) s.draw(ctx, this.bounds);
+    for (const bm of this._bombers) bm.draw(ctx, this.bounds);
 
     // Stealth death fragments — purple, fading out.
     ctx.save();
@@ -2064,6 +2280,47 @@ export class Game {
       });
     }
     ctx.globalAlpha = 1;
+    ctx.restore();
+
+    // Bomber death fragments — orange, fading out.
+    ctx.save();
+    ctx.strokeStyle = BOMBER.color;
+    for (const f of this._bomberFragments) {
+      ctx.globalAlpha = (1 - f.age / BOMBER.fragMaxAge) ** 1.5;
+      const cos = Math.cos(f.angle);
+      const sin = Math.sin(f.angle);
+      const toWorld = ({ x, y }) => ({
+        x: f.pos.x + cos * x - sin * y,
+        y: f.pos.y + sin * x + cos * y,
+      });
+      drawAtWrappedPositions(f.pos, BOMBER.radius, this.bounds, (wx, wy) => {
+        const dx = wx - f.pos.x;
+        const dy = wy - f.pos.y;
+        const a0 = toWorld(f.points[0]);
+        const a1 = toWorld(f.points[1]);
+        ctx.beginPath();
+        ctx.moveTo(a0.x + dx, a0.y + dy);
+        ctx.lineTo(a1.x + dx, a1.y + dy);
+        ctx.stroke();
+      });
+    }
+    ctx.globalAlpha = 1;
+    ctx.restore();
+
+    // Missiles — small yellow filled arrowhead.
+    ctx.save();
+    ctx.fillStyle = BOMBER.missile.color;
+    for (const m of this._missiles) {
+      const r   = BOMBER.missile.radius;
+      const cos = Math.cos(m.angle);
+      const sin = Math.sin(m.angle);
+      ctx.beginPath();
+      ctx.moveTo(m.pos.x + cos * r * 2.5,                      m.pos.y + sin * r * 2.5);
+      ctx.lineTo(m.pos.x - cos * r * 1.5 - sin * r * 2,        m.pos.y - sin * r * 1.5 + cos * r * 2);
+      ctx.lineTo(m.pos.x - cos * r * 1.5 + sin * r * 2,        m.pos.y - sin * r * 1.5 - cos * r * 2);
+      ctx.closePath();
+      ctx.fill();
+    }
     ctx.restore();
 
     for (const m of this._mines) m.draw(ctx, this.bounds);

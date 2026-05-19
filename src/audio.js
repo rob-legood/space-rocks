@@ -138,6 +138,25 @@ export function playCargoDestroy() {
   sweep('triangle', 280, 90, 0.22, 0.45);
 }
 
+export function playMissileLaunch() {
+  // Rising woosh — missile leaving the tube.
+  sweep('sine', 300, 1100, 0.14, 0.28);
+  noiseBurst(700, 4.5, 0.08, 0.14);
+}
+
+export function playMissileExplode() {
+  // Sharp crack — missile detonating or self-destructing.
+  sweep('triangle', 900, 180, 0.22, 0.22);
+  noiseBurst(450, 2.2, 0.18, 0.18);
+}
+
+export function playBomberDestroy() {
+  // Deep booming explosion — much larger than an asteroid.
+  noiseBurst(75, 0.5, 1.4, 2.0);
+  sweep('sawtooth', 140, 22, 1.1, 0.7);
+  sweep('square',   220, 55, 0.55, 0.35);
+}
+
 export function playStealthDestroy() {
   // Cloaking device failing: electric static burst + descending power-down sweep.
   noiseBurst(620, 1.4, 0.42, 0.80);
