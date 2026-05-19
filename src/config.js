@@ -228,6 +228,24 @@ export const ENEMY = {
   },
 };
 
+export const DRONE = {
+  radius:           8,      // collision and visual radius px
+  color:            '#4ef', // cyan stroke — visually distinct from red enemy
+  hitFlashDuration: 0.10,   // seconds the white-hit tint lasts
+  speed:            110,    // px/s max speed
+  accel:            160,    // px/s² thrust in current heading direction
+  turnRate:         1.6,    // rad/s max heading change — limits sharpness of curve
+  hp:               1,
+  sparkCount:       10,
+  sparkMinSpeed:    55,
+  sparkMaxSpeed:    150,
+  sparkMinAge:      0.3,
+  sparkMaxAge:      0.65,
+  sparkMinRadius:   1.5,
+  sparkMaxRadius:   3.5,
+  sparkColor:       '#4ef',
+};
+
 export const STATION = {
   pane:      { x: 16, y: 48, w: 240, h: 160 }, // canvas coords for the animation pane
   stationX:  68,   // station hub center, pane-local

@@ -1,10 +1,11 @@
-import { CANVAS, ASTEROID, INVULN, HUD, COIN, PLATINUM, DILITHIUM, FRAGMENT, PARTICLE, WARP, WORMHOLE, STATION, SHIP, HIT_SPARK, ENEMY, CARGO, MINE, COMET } from './config.js';
+import { CANVAS, ASTEROID, INVULN, HUD, COIN, PLATINUM, DILITHIUM, FRAGMENT, PARTICLE, WARP, WORMHOLE, STATION, SHIP, HIT_SPARK, ENEMY, DRONE, CARGO, MINE, COMET } from './config.js';
 import UPGRADES from './upgrades.json';
 import { getLevel, LEVEL_ZERO } from './levels.js';
 import { Ship } from './entities/ship.js';
 import { Bullet } from './entities/bullet.js';
 import { Asteroid } from './entities/asteroid.js';
 import { Enemy } from './entities/enemy.js';
+import { Drone } from './entities/drone.js';
 import { Cargo } from './entities/cargo.js';
 import { Mine } from './entities/mine.js';
 import { Comet } from './entities/comet.js';
@@ -15,7 +16,7 @@ import { circlesOverlap } from './utils/collision.js';
 import { drawAtWrappedPositions, wrap } from './utils/canvas.js';
 import {
   playFire, playBang, playExplosion, playHit,
-  playCoinCollect, playCoinDestroy, playCargoDestroy, playEnemyFire,
+  playCoinCollect, playCoinDestroy, playCargoDestroy, playEnemyFire, playDroneDestroy,
   playWarpOut, playWarpIn,
   playMenuNav, playMenuSelect,
   startThrust, stopThrust,
@@ -45,6 +46,7 @@ export class Game {
     this._enemies             = [];
     this._enemyBullets        = [];
     this._pendingEnemySpawns  = [];
+    this._drones              = [];
     this._cargos              = [];
     this._splinterParticles   = [];
     this._mines               = [];
@@ -193,6 +195,7 @@ export class Game {
       this._shockwaves           = [];
       this._comets               = [];
       this._cometTrail           = [];
+      this._drones               = [];
       this.ship.dead = true;
       this._state = 'gameover';
     } else {
@@ -228,6 +231,7 @@ export class Game {
     this._enemies             = [];
     this._enemyBullets        = [];
     this._pendingEnemySpawns  = [];
+    this._drones              = [];
     this._cargos              = [];
     this._splinterParticles   = [];
     this._mines               = [];
@@ -395,6 +399,7 @@ export class Game {
     this._particles           = [];
     this._enemies             = [];
     this._enemyBullets        = [];
+    this._drones              = [];
     this._splinterParticles   = [];
     this._mines               = [];
     this._shockwaves          = [];
@@ -430,7 +435,7 @@ export class Game {
       this._entryWormhole = null;
       this._invulnTimer   = INVULN.invulnDuration;
       this._state         = 'playing';
-      playMusic('playing');
+      playMusic(this._drones.length > 0 ? 'enemy' : 'playing');
     }
   }
 
@@ -677,6 +682,26 @@ export class Game {
           } while (Math.hypot(x - shipX, y - shipY) < ASTEROID.safeRadius);
           this._comets.push(new Comet(x, y));
         }
+      } else if (entry.type === 'drone') {
+        for (let i = 0; i < (entry.count ?? 1); i++) {
+          let x, y;
+          do {
+            x = Math.random() * CANVAS.width;
+            y = Math.random() * CANVAS.height;
+          } while (Math.hypot(x - shipX, y - shipY) < ASTEROID.safeRadius);
+          this._drones.push(new Drone(x, y, {
+            hp:           entry.hp           ?? DRONE.hp,
+            speed:        entry.speed        ?? DRONE.speed,
+            accel:        entry.accel        ?? DRONE.accel,
+            turnRate:     entry.turnRate     ?? DRONE.turnRate,
+            minCoins:     entry.minCoins     ?? 0,
+            maxCoins:     entry.maxCoins     ?? 0,
+            minPlatinum:  entry.minPlatinum  ?? 0,
+            maxPlatinum:  entry.maxPlatinum  ?? 0,
+            minDilithium: entry.minDilithium ?? 0,
+            maxDilithium: entry.maxDilithium ?? 0,
+          }));
+        }
       } else {
         const { type, count } = entry;
         let spawned = 0;
@@ -786,6 +811,21 @@ export class Game {
         maxAge: PLATINUM.sparkMinAge + Math.random() * (PLATINUM.sparkMaxAge - PLATINUM.sparkMinAge),
         radius: 1 + Math.random() * 1.5,
         color:  PLATINUM.color,
+      });
+    }
+  }
+
+  _spawnDroneParticles(pos) {
+    for (let i = 0; i < DRONE.sparkCount; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = DRONE.sparkMinSpeed + Math.random() * (DRONE.sparkMaxSpeed - DRONE.sparkMinSpeed);
+      this._hitParticles.push({
+        pos:    { x: pos.x, y: pos.y },
+        vel:    { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed },
+        age:    0,
+        maxAge: DRONE.sparkMinAge + Math.random() * (DRONE.sparkMaxAge - DRONE.sparkMinAge),
+        radius: DRONE.sparkMinRadius + Math.random() * (DRONE.sparkMaxRadius - DRONE.sparkMinRadius),
+        color:  DRONE.sparkColor,
       });
     }
   }
@@ -1366,6 +1406,8 @@ export class Game {
       if (shot) { this._enemyBullets.push(shot); playEnemyFire(); }
     }
 
+    for (const d of this._drones) d.update(dt, this.bounds, this.ship.pos);
+
     // Update enemy bullets.
     for (const b of this._enemyBullets) {
       b.age += dt;
@@ -1450,7 +1492,39 @@ export class Game {
       }
       return true;
     });
-    if (enemyCountBefore > 0 && this._enemies.length === 0) playMusic('playing');
+    const enemiesGone = enemyCountBefore > 0 && this._enemies.length === 0;
+
+    // Player bullets vs drones.
+    for (const b of this.bullets) {
+      if (b.dead) continue;
+      for (const d of this._drones) {
+        if (circlesOverlap(b, d, this.bounds)) {
+          b.dead = true;
+          d.hp -= b.damage;
+          if (d.hp > 0) {
+            d.hitFlash = DRONE.hitFlashDuration;
+            this._spawnHitParticles(b.pos);
+            playHit();
+          }
+          break;
+        }
+      }
+    }
+    // Remove killed drones, spawn destruction effect, and drop loot.
+    const droneCountBefore = this._drones.length;
+    this._drones = this._drones.filter(d => {
+      if (d.hp <= 0) {
+        this._spawnDroneParticles(d.pos);
+        this._spawnResources(d.pos, d);
+        playDroneDestroy();
+        return false;
+      }
+      return true;
+    });
+    const dronesGone = droneCountBefore > 0 && this._drones.length === 0;
+
+    if ((enemiesGone && this._drones.length === 0) ||
+        (dronesGone  && this._enemies.length === 0)) playMusic('playing');
 
     // Coins: move, spin, wrap, age.
     for (const c of this._coins) {
@@ -1650,6 +1724,15 @@ export class Game {
           }
         }
       }
+      // Ship vs drones: drone rams the ship.
+      if (!this.ship.dead) {
+        for (const d of this._drones) {
+          if (circlesOverlap(this.ship, d, this.bounds)) {
+            this._killShip();
+            break;
+          }
+        }
+      }
     }
 
     // Ship vs cargo: crate destroyed, no loot, ship unharmed.
@@ -1710,11 +1793,12 @@ export class Game {
 
     this._shockwaves = this._shockwaves.filter(sw => !sw.dead);
 
-    // Level complete: all required asteroids, enemies, mines, and comets cleared.
+    // Level complete: all required asteroids, enemies, drones, mines, and comets cleared.
     if (this._state === 'playing' &&
         this.asteroids.filter(a => !a.optional).length === 0 &&
         this._enemies.length === 0 &&
         this._pendingEnemySpawns.length === 0 &&
+        this._drones.length === 0 &&
         this._mines.length === 0 &&
         this._comets.length === 0) {
       this._state = 'levelcomplete';
@@ -1823,6 +1907,7 @@ export class Game {
     for (const a of this.asteroids) a.draw(ctx, this.bounds);
     for (const c of this._cargos) c.draw(ctx, this.bounds);
     for (const e of this._enemies) e.draw(ctx, this.bounds);
+    for (const d of this._drones) d.draw(ctx, this.bounds);
     for (const m of this._mines) m.draw(ctx, this.bounds);
     for (const c of this._comets) c.draw(ctx);
 

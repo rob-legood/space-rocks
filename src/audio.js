@@ -138,6 +138,12 @@ export function playCargoDestroy() {
   sweep('triangle', 280, 90, 0.22, 0.45);
 }
 
+export function playDroneDestroy() {
+  // Electronic pop: sharp high-freq zap + narrow noise crackle.
+  sweep('square', 1400, 280, 0.18, 0.35);
+  noiseBurst(900, 3.0, 0.14, 0.28);
+}
+
 // ── Menu sounds ───────────────────────────────────────────────────────────────
 
 export function playMenuNav() {
