@@ -181,6 +181,37 @@ export function playDroneDestroy() {
   noiseBurst(900, 3.0, 0.14, 0.28);
 }
 
+export function playCivilianWarp() {
+  // Higher-pitched distress warp — shorter and softer than the player warp.
+  sweep('sine', 1100, 160, 0.32, 0.22);
+  noiseBurst(600, 2.8, 0.22, 0.14);
+}
+
+export function playCivilianDestroy() {
+  // Small explosion + descending distress tone.
+  noiseBurst(420, 1.3, 0.40, 0.55);
+  sweep('triangle', 280, 70, 0.32, 0.28);
+}
+
+export function playCivilianAttach() {
+  // Two ascending tones — positive lock-on / docking chime.
+  const c = ac();
+  [660, 1100].forEach((freq, i) => {
+    const o = c.createOscillator();
+    const g = c.createGain();
+    o.connect(g);
+    g.connect(c.destination);
+    o.type = 'sine';
+    o.frequency.value = freq;
+    const onset = c.currentTime + i * 0.08;
+    g.gain.setValueAtTime(0, onset);
+    g.gain.linearRampToValueAtTime(0.22, onset + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.001, onset + 0.14);
+    o.start(onset);
+    o.stop(onset + 0.14);
+  });
+}
+
 // ── Menu sounds ───────────────────────────────────────────────────────────────
 
 export function playMenuNav() {

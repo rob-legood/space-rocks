@@ -327,6 +327,31 @@ export const DRONE = {
   sparkColor:       '#4ef',
 };
 
+export const CIVILIAN = {
+  size:               10,   // visual size (player is 14)
+  radius:              7,   // collision radius when free
+  attachedRadiusBonus: 5,   // added to ship.radius per attached civilian
+  rotSpeed:          1.4,   // rad/s facing rotation rate
+  thrustAccel:        70,   // px/s² thrust force
+  friction:          0.80,  // velocity multiplier per second (exponential decay)
+  maxSpeed:           90,   // px/s speed cap
+  thrustOn:          0.7,   // seconds thrust fires each cycle
+  thrustOff:         0.5,   // seconds thrust is off each cycle
+  flameColor:      '#8f0',  // thruster flame colour
+  lives:               5,   // lives before permanent destruction
+  color:           '#4f8',  // friendly green
+  reward:             50,   // default § earned per delivery at wormhole
+  warpColor:       '#4fa',  // cyan-green warp rings
+  orbitRadius:        28,   // px from ship center when orbiting
+  orbitSpeed:        1.8,   // rad/s orbit rate
+  sparkCount:         12,
+  sparkMinSpeed:      50,   // px/s
+  sparkMaxSpeed:     150,   // px/s
+  sparkMinAge:       0.2,   // seconds
+  sparkMaxAge:       0.6,   // seconds
+  sparkColor:      '#4f8',  // matches civilian color
+};
+
 export const STATION = {
   pane:      { x: 16, y: 48, w: 240, h: 160 }, // canvas coords for the animation pane
   stationX:  68,   // station hub center, pane-local

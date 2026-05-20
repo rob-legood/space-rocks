@@ -21,11 +21,11 @@
 //   'cargo'      — drifting container, destroy for bonus coins - DONE!
 //   'mine'       — stationary, explodes on proximity (or shot) - DONE! - DONE!
 //   'comet'      — very fast rock with a particle trail - DONE!
-//   'civilian'   — friendly ship; bonus if alive, penalty if dead
-//   'bomber'     — slow enemy with heavy, slow projectiles
+//   'civilian'   — friendly ship; bonus if alive, penalty if dead - DONE!
+//   'bomber'     — slow enemy with heavy, slow projectiles - DONE!
 //   'stealth'    — enemy that cloaks between shots - DONE!
 //   'drone'      — small fast enemy in swarms - DONE!
-//   'shielded'   — asteroid with regenerating shield bubble
+//   'shielded'   — asteroid with regenerating shield bubble - DONE!
 //   'blackhole'  — env hazard, pulls everything toward it - DONE!
 //   'plasmacloud'— env hazard, damages over time
 //   'beacon'     — interactable object that triggers a wave
@@ -197,7 +197,7 @@ export const LEVELS = [
     id: 16,
     title: 'Level 16: A Merchant Arrives',
     spawn: [
-      { type: 'civilian', count: 1 },
+      { type: 'civilian', count: 1, reward: 50 },
       { type: 'large', count: 2 },
       { type: 'enemy', count: 2, speed: 60, shotInterval: 1.2, minSpawnTime: 6, maxSpawnTime: 12, hp: 1 },
     ],
@@ -208,7 +208,7 @@ export const LEVELS = [
     id: 17,
     title: 'Level 17: Escort Service',
     spawn: [
-      { type: 'civilian', count: 2 },
+      { type: 'civilian', count: 2, reward: 75 },
       { type: 'large', count: 2 },
       { type: 'fragile', count: 1 },
       { type: 'enemy', count: 3, speed: 70, shotInterval: 1.0, minSpawnTime: 5, maxSpawnTime: 10, hp: 1 },
@@ -324,7 +324,7 @@ export const LEVELS = [
     spawn: [
       { type: 'large', count: 2 },
       { type: 'salvage', count: 2 },
-      { type: 'civilian', count: 1 },
+      { type: 'civilian', count: 1, reward: 100 },
       { type: 'stealth', count: 1 },
     ],
     storytext: 'A contact reached out on a dead channel. Name: Vex. Used to be Federation Intelligence. Quit when her job started feeling like "homework for an evil child."\n\nWe\'re meeting her in the void zone three sectors out. Her ship looks like a pile of old refrigerators, which is reassuring — nobody fakes a pile of refrigerators.\n\nSalvage drifting nearby — old Federation patrol craft. Wrecks of ships that "went missing." Officially. Unofficially: ships that asked the wrong question. Collect what you can while she briefs us.',
@@ -623,8 +623,10 @@ export const LEVEL_ZERO = {
   enabled: true,
   title: 'Level 0: Dev Sandbox',
   spawn: [
-    { type: 'enemy', count: 1, speed: 40, shotInterval: 2, minSpawnTime: 2, maxSpawnTime: 4, hp: 1, size: 15, shield: 2, minCoins: 5, maxCoins: 10 },
+//    { type: 'enemy', count: 1, speed: 40, shotInterval: 2, minSpawnTime: 2, maxSpawnTime: 4, hp: 1, size: 15, shield: 2, minCoins: 5, maxCoins: 10 },
     { type: 'large', count: 2 },
+    { type: 'civilian', count: 2, reward: 50 },
+
 //    { type: 'stealth', count: 3 },
 //    { type: 'drone', count: 5 },
 //    { type: 'large', count: 0, maxCoins: 10, maxCoins: 10, minPlatinum: 0, maxPlatinum: 0, minDilithium: 0, maxDilithium: 0 },

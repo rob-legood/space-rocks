@@ -1,4 +1,4 @@
-import { CANVAS, ASTEROID, INVULN, HUD, COIN, PLATINUM, DILITHIUM, FRAGMENT, PARTICLE, WARP, WORMHOLE, STATION, SHIP, HIT_SPARK, ENEMY, STEALTH, BOMBER, DRONE, CARGO, MINE, COMET, BLACKHOLE } from './config.js';
+import { CANVAS, ASTEROID, INVULN, HUD, COIN, PLATINUM, DILITHIUM, FRAGMENT, PARTICLE, WARP, WORMHOLE, STATION, SHIP, HIT_SPARK, ENEMY, STEALTH, BOMBER, DRONE, CARGO, MINE, COMET, BLACKHOLE, CIVILIAN } from './config.js';
 import UPGRADES from './upgrades.json';
 import { getLevel, LEVEL_ZERO } from './levels.js';
 import { Ship } from './entities/ship.js';
@@ -12,6 +12,7 @@ import { Cargo } from './entities/cargo.js';
 import { Mine } from './entities/mine.js';
 import { Comet } from './entities/comet.js';
 import { Blackhole } from './entities/blackhole.js';
+import { Civilian } from './entities/civilian.js';
 import { Wormhole } from './entities/wormhole.js';
 import { Starfield } from './entities/starfield.js';
 import { Input } from './input.js';
@@ -23,6 +24,7 @@ import {
   playStealthFire, playStealthDestroy, playDroneDestroy,
   playMissileLaunch, playMissileExplode, playBomberDestroy,
   playWarpOut, playWarpIn,
+  playCivilianWarp, playCivilianDestroy, playCivilianAttach,
   playMenuNav, playMenuSelect,
   startThrust, stopThrust,
 } from './audio.js';
@@ -64,6 +66,7 @@ export class Game {
     this._comets              = [];
     this._cometTrail          = [];
     this._blackholes          = [];
+    this._civilians           = [];
     this._score        = 0;
     this._lives       = HUD.lives;
     this._warpPhase   = 'none'; // 'none' | 'out' | 'in'
@@ -212,6 +215,8 @@ export class Game {
       this._bombers              = [];
       this._missiles             = [];
       this._bomberFragments      = [];
+      this._civilians            = [];
+      this.ship.radius = SHIP.size * 0.7;
       this.ship.dead = true;
       this._state = 'gameover';
     } else {
@@ -260,6 +265,8 @@ export class Game {
     this._comets              = [];
     this._cometTrail          = [];
     this._blackholes          = [];
+    this._civilians           = [];
+    this.ship.radius = SHIP.size * 0.7;
     this._score        = 0;
     this._lives       = HUD.lives;
     this._warpPhase     = 'none';
@@ -433,6 +440,8 @@ export class Game {
     this._comets              = [];
     this._cometTrail          = [];
     this._blackholes          = [];
+    this._civilians           = [];
+    this.ship.radius = SHIP.size * 0.7;
     this._warpPhase           = 'none';
     this._warpTimer           = 0;
     this._exitWormhole        = null;
@@ -460,6 +469,7 @@ export class Game {
     for (const a of this.asteroids) a.update(dt, this.bounds);
     for (const bh of this._blackholes) bh.update(dt);
     for (const c of this._cargos) c.update(dt, this.bounds);
+    for (const c of this._civilians) c.update(dt, this.bounds);
     if (this._enterTimer >= WORMHOLE.enterDuration) {
       this._entryWormhole = null;
       this._invulnTimer   = INVULN.invulnDuration;
@@ -481,6 +491,7 @@ export class Game {
     for (const bh of this._blackholes) bh.draw(ctx);
     for (const a of this.asteroids) a.draw(ctx, this.bounds);
     for (const c of this._cargos) c.draw(ctx, this.bounds);
+    for (const c of this._civilians) if (!c.attached) c.draw(ctx, this.bounds);
 
     const openFactor = Math.min(this._enterTimer / WORMHOLE.enterDuration, 1);
 
@@ -648,6 +659,12 @@ export class Game {
     ctx.fillStyle = COIN.color;
     ctx.fillText(`${HUD.scoreSymbol} ${this._score}`, HUD.scorePadding, HUD.scorePadding);
 
+    const attachedCount = this._civilians ? this._civilians.filter(c => c.attached).length : 0;
+    if (attachedCount > 0) {
+      ctx.fillStyle = CIVILIAN.color;
+      ctx.fillText(`+ ${attachedCount}`, HUD.scorePadding, HUD.scorePadding + 26);
+    }
+
     if (this._devMode) {
       ctx.textAlign = 'center';
       ctx.font = '13px "Courier New", monospace';
@@ -780,6 +797,17 @@ export class Game {
             maxPlatinum:  entry.maxPlatinum  ?? 0,
             minDilithium: entry.minDilithium ?? 0,
             maxDilithium: entry.maxDilithium ?? 0,
+          }));
+        }
+      } else if (entry.type === 'civilian') {
+        for (let i = 0; i < (entry.count ?? 1); i++) {
+          let x, y;
+          do {
+            x = Math.random() * CANVAS.width;
+            y = Math.random() * CANVAS.height;
+          } while (Math.hypot(x - shipX, y - shipY) < ASTEROID.safeRadius);
+          this._civilians.push(new Civilian(x, y, {
+            reward: entry.reward ?? CIVILIAN.reward,
           }));
         }
       } else {
@@ -1031,6 +1059,21 @@ export class Game {
         maxAge: HIT_SPARK.minAge + Math.random() * (HIT_SPARK.maxAge - HIT_SPARK.minAge),
         radius: HIT_SPARK.minRadius + Math.random() * (HIT_SPARK.maxRadius - HIT_SPARK.minRadius),
         color:  HIT_SPARK.color,
+      });
+    }
+  }
+
+  _spawnCivilianExplosion(pos) {
+    for (let i = 0; i < CIVILIAN.sparkCount; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = CIVILIAN.sparkMinSpeed + Math.random() * (CIVILIAN.sparkMaxSpeed - CIVILIAN.sparkMinSpeed);
+      this._hitParticles.push({
+        pos:    { x: pos.x, y: pos.y },
+        vel:    { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed },
+        age:    0,
+        maxAge: CIVILIAN.sparkMinAge + Math.random() * (CIVILIAN.sparkMaxAge - CIVILIAN.sparkMinAge),
+        radius: 1.5 + Math.random() * 2,
+        color:  CIVILIAN.sparkColor,
       });
     }
   }
@@ -1550,6 +1593,8 @@ export class Game {
     for (const b of this.bullets) b.update(dt, this.bounds);
     for (const a of this.asteroids) a.update(dt, this.bounds);
     for (const c of this._cargos) c.update(dt, this.bounds);
+    for (const c of this._civilians) c.update(dt, this.bounds);
+    for (const c of this._civilians.filter(c => c.attached)) c.orbitAngle += CIVILIAN.orbitSpeed * dt;
     for (const m of this._mines) m.update(dt, this.bounds);
 
     for (const c of this._comets) {
@@ -1700,6 +1745,22 @@ export class Game {
     }
     this._enemyBullets = this._enemyBullets.filter(b => !b.dead);
 
+    // Enemy bullets vs free civilians.
+    for (const b of this._enemyBullets) {
+      if (b.dead) continue;
+      for (const c of this._civilians) {
+        if (c.attached || c.warpPhase !== 'none') continue;
+        if (circlesOverlap(b, c, this.bounds)) {
+          b.dead = true;
+          if (c.hit()) { this._spawnCivilianExplosion(c.pos); playCivilianDestroy(); }
+          else playCivilianWarp();
+          break;
+        }
+      }
+    }
+    this._enemyBullets = this._enemyBullets.filter(b => !b.dead);
+    this._civilians    = this._civilians.filter(c => !c.dead);
+
     // Bullets vs asteroids: accumulate damage per asteroid so two bullets in one frame
     // don't double-split, but do stack damage.
     const asteroidHits = new Map(); // asteroid → { damage, impactPos }
@@ -1737,6 +1798,21 @@ export class Game {
     for (const a of this.asteroids.filter(x => x.dying && x.dyingTimer <= 0)) {
       this.splitAsteroid(a);
     }
+
+    // Player bullets vs free civilians.
+    for (const b of this.bullets) {
+      if (b.dead) continue;
+      for (const c of this._civilians) {
+        if (c.attached || c.warpPhase !== 'none') continue;
+        if (circlesOverlap(b, c, this.bounds)) {
+          b.dead = true;
+          if (c.hit()) { this._spawnCivilianExplosion(c.pos); playCivilianDestroy(); }
+          else playCivilianWarp();
+          break;
+        }
+      }
+    }
+    this._civilians = this._civilians.filter(c => !c.dead);
 
     // Tiny asteroids that reached their natural lifespan expire and drop a coin.
     const agedOut = this.asteroids.filter(a => a.maxAge !== null && a.age >= a.maxAge);
@@ -2126,6 +2202,32 @@ export class Game {
       }
     }
 
+    // Asteroids vs free civilians.
+    for (const c of this._civilians) {
+      if (c.attached || c.warpPhase !== 'none') continue;
+      for (const a of this.asteroids) {
+        if (circlesOverlap(a, c, this.bounds)) {
+          if (c.hit()) { this._spawnCivilianExplosion(c.pos); playCivilianDestroy(); }
+          else playCivilianWarp();
+          break;
+        }
+      }
+    }
+    this._civilians = this._civilians.filter(c => !c.dead);
+
+    // Ship vs free civilians: attach on contact (no invuln restriction — rescuing is safe).
+    if (!this.ship.dead && this._warpPhase === 'none') {
+      for (const c of this._civilians) {
+        if (c.attached || c.warpPhase !== 'none') continue;
+        if (circlesOverlap(this.ship, c, this.bounds)) {
+          c.attached = true;
+          c.orbitAngle = Math.random() * Math.PI * 2;
+          this.ship.radius += CIVILIAN.attachedRadiusBonus;
+          playCivilianAttach();
+        }
+      }
+    }
+
     // Ship vs cargo: crate destroyed, no loot, ship unharmed.
     if (!this.ship.dead) {
       const hitCargos = new Set();
@@ -2184,6 +2286,37 @@ export class Game {
 
     this._shockwaves = this._shockwaves.filter(sw => !sw.dead);
 
+    // Shockwaves vs free civilians.
+    for (const c of this._civilians) {
+      if (c.attached || c.warpPhase !== 'none') continue;
+      for (const sw of this._shockwaves) {
+        let dx = Math.abs(sw.pos.x - c.pos.x);
+        let dy = Math.abs(sw.pos.y - c.pos.y);
+        if (dx > this.bounds.width  / 2) dx = this.bounds.width  - dx;
+        if (dy > this.bounds.height / 2) dy = this.bounds.height - dy;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (Math.abs(dist - sw.radius) <= MINE.shockwaveKillBand + c.radius) {
+          if (c.hit()) { this._spawnCivilianExplosion(c.pos); playCivilianDestroy(); }
+          else playCivilianWarp();
+          break;
+        }
+      }
+    }
+    this._civilians = this._civilians.filter(c => !c.dead);
+
+    // Comets vs free civilians.
+    for (const c of this._civilians) {
+      if (c.attached || c.warpPhase !== 'none') continue;
+      for (const comet of this._comets) {
+        if (circlesOverlap(comet, c, this.bounds)) {
+          if (c.hit()) { this._spawnCivilianExplosion(c.pos); playCivilianDestroy(); }
+          else playCivilianWarp();
+          break;
+        }
+      }
+    }
+    this._civilians = this._civilians.filter(c => !c.dead);
+
     // Level complete: all required asteroids, enemies, drones, stealth, mines, and comets cleared.
     if (this._state === 'playing' &&
         this.asteroids.filter(a => !a.optional).length === 0 &&
@@ -2207,6 +2340,11 @@ export class Game {
         this.ship.vel = { x: 0, y: 0 };
         this._exitTimer = 0;
         this._state = 'exiting';
+        for (const c of this._civilians.filter(c => c.attached)) {
+          this._score += c.reward;
+        }
+        this._civilians = this._civilians.filter(c => !c.attached);
+        this.ship.radius = SHIP.size * 0.7;
         playWarpOut();
         stopThrust();
         this._wasThrusting = false;
@@ -2239,6 +2377,21 @@ export class Game {
         Math.floor((INVULN.invulnDuration - this._invulnTimer) / INVULN.blinkInterval) % 2 !== 0;
       if (!hidden) {
         this.ship.draw(ctx);
+        for (const c of this._civilians.filter(c => c.attached)) {
+          const ox = this.ship.pos.x + Math.cos(c.orbitAngle) * CIVILIAN.orbitRadius;
+          const oy = this.ship.pos.y + Math.sin(c.orbitAngle) * CIVILIAN.orbitRadius;
+          ctx.save();
+          ctx.strokeStyle = 'rgba(68,255,136,0.35)';
+          ctx.lineWidth = 1;
+          ctx.setLineDash([3, 4]);
+          ctx.beginPath();
+          ctx.moveTo(this.ship.pos.x, this.ship.pos.y);
+          ctx.lineTo(ox, oy);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.restore();
+          c.drawAt(ctx, ox, oy);
+        }
         const cooldown = this._getUpgradeValue('rechargeCooldown');
         const progress = Math.min(this._fireTimer / cooldown, 1);
         if (progress < 1) {
@@ -2263,13 +2416,18 @@ export class Game {
       // Warp-out: ship shrinks (1→0); warp-in: ship grows (0→1).
       const shipScale = this._warpPhase === 'out' ? 1 - t : t;
 
-      // Ship hull, scaled around its centre.
+      // Ship hull + attached civilians, all scaled around the ship centre.
       if (shipScale > 0.01) {
         ctx.save();
         ctx.translate(this.ship.pos.x, this.ship.pos.y);
         ctx.scale(shipScale, shipScale);
         ctx.translate(-this.ship.pos.x, -this.ship.pos.y);
         this.ship.draw(ctx);
+        for (const c of this._civilians.filter(c => c.attached)) {
+          const ox = this.ship.pos.x + Math.cos(c.orbitAngle) * CIVILIAN.orbitRadius;
+          const oy = this.ship.pos.y + Math.sin(c.orbitAngle) * CIVILIAN.orbitRadius;
+          c.drawAt(ctx, ox, oy);
+        }
         ctx.restore();
       }
 
@@ -2300,6 +2458,9 @@ export class Game {
 
     for (const a of this.asteroids) a.draw(ctx, this.bounds);
     for (const c of this._cargos) c.draw(ctx, this.bounds);
+    for (const c of this._civilians) {
+      if (!c.attached) c.draw(ctx, this.bounds);
+    }
     for (const e of this._enemies) e.draw(ctx, this.bounds);
     for (const d of this._drones) d.draw(ctx, this.bounds);
     for (const s of this._stealth) s.draw(ctx, this.bounds);
