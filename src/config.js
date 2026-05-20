@@ -332,11 +332,13 @@ export const CIVILIAN = {
   radius:              7,   // collision radius when free
   attachedRadiusBonus: 5,   // added to ship.radius per attached civilian
   rotSpeed:          1.4,   // rad/s facing rotation rate
+  rotFlipMin:        2.5,   // min seconds before rotation direction flips
+  rotFlipMax:        6.0,   // max seconds before rotation direction flips
   thrustAccel:        70,   // px/s² thrust force
   friction:          0.80,  // velocity multiplier per second (exponential decay)
   maxSpeed:           90,   // px/s speed cap
-  thrustOn:          0.7,   // seconds thrust fires each cycle
-  thrustOff:         0.5,   // seconds thrust is off each cycle
+  thrustOn:          0.5,   // seconds thrust fires each cycle
+  thrustOff:         2.5,   // seconds thrust is off each cycle
   flameColor:      '#8f0',  // thruster flame colour
   lives:               5,   // lives before permanent destruction
   color:           '#4f8',  // friendly green

@@ -29,7 +29,7 @@ export class Civilian {
     this.orbitAngle = Math.random() * Math.PI * 2;
     this.thrusting  = true;
     this._rotDir    = Math.random() < 0.5 ? 1 : -1;
-    this._rotTimer  = 0.3 + Math.random() * 0.8;   // first flip soon
+    this._rotTimer  = CIVILIAN.rotFlipMin + Math.random() * (CIVILIAN.rotFlipMax - CIVILIAN.rotFlipMin);
     this._thrustTimer = CIVILIAN.thrustOn * Math.random(); // stagger cycles
   }
 
@@ -47,7 +47,7 @@ export class Civilian {
         this.vel      = { x: 0, y: 0 };
         this.angle    = Math.random() * Math.PI * 2;
         this._rotDir  = Math.random() < 0.5 ? 1 : -1;
-        this._rotTimer = 0.3 + Math.random() * 0.8;
+        this._rotTimer = CIVILIAN.rotFlipMin + Math.random() * (CIVILIAN.rotFlipMax - CIVILIAN.rotFlipMin);
       } else if (this.warpPhase === 'in' && this.warpTimer >= WARP.inDuration) {
         this.warpPhase = 'none';
         this.warpTimer = 0;
@@ -62,7 +62,7 @@ export class Civilian {
     this._rotTimer -= dt;
     if (this._rotTimer <= 0) {
       this._rotDir   = -this._rotDir;
-      this._rotTimer = 0.4 + Math.random() * 1.2;
+      this._rotTimer = CIVILIAN.rotFlipMin + Math.random() * (CIVILIAN.rotFlipMax - CIVILIAN.rotFlipMin);
     }
 
     // Toggle thrust on/off in cycles.
